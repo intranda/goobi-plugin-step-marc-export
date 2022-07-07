@@ -6,16 +6,159 @@
           3.) project name matches and step name is *
           4.) project name and step name are *
 	-->
-    
+
     <config>
         <!-- which projects to use for (can be more then one, otherwise use *) -->
         <project>*</project>
         <step>*</step>
+
+
+        <marcField xpath="" type="controlfield" mainTag="001" ind1=" " ind2=" " subTag=" " reuseMode="none" rulesetName="CatalogIDDigital" />
+
+
+        <marcField xpath="" type="datafield" mainTag="016" ind1="7" ind2="_" subTag="a" reuseMode="mainField" rulesetName="CatalogIDPeriodicalDB" additionalSubFieldCode="2" additionalSubFieldValue="DE-600" />
+
+        <marcField xpath="" type="datafield" mainTag="020" ind1="_" ind2="_" subTag="a" reuseMode="mainField" rulesetName="ISBN" />
+        <marcField xpath="" type="datafield" mainTag="022" ind1="_" ind2="_" subTag="a" reuseMode="mainField" rulesetName="ISSN" />
+        <marcField xpath="" type="datafield" mainTag="024" ind1="3" ind2="_" subTag="a" reuseMode="mainField" rulesetName="EAN" />
+
+        <marcField xpath="" type="datafield" mainTag="024" ind1="7" ind2="_" subTag="a" reuseMode="mainField" rulesetName="DOI" additionalSubFieldCode="2" additionalSubFieldValue="doi" />
+        <marcField xpath="" type="datafield" mainTag="024" ind1="7" ind2="_" subTag="a" reuseMode="mainField" rulesetName="Handle" additionalSubFieldCode="2" additionalSubFieldValue="hdl" />
+        <marcField xpath="" type="datafield" mainTag="024" ind1="7" ind2="_" subTag="a" reuseMode="mainField" rulesetName="URN" additionalSubFieldCode="2" additionalSubFieldValue="urn" />
+
+
+        <marcField xpath="" type="datafield" mainTag="041" ind1="a" ind2="_" subTag="a" reuseMode="subField" rulesetName="DocLanguage" />
+
+        <marcField xpath="" type="datafield" mainTag="084" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="DDC" additionalSubFieldCode="q" additionalSubFieldValue="DE-109" />
+
+
+        <marcField xpath="" type="datafield" mainTag="100" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="Author" additionalSubFieldCode="4" additionalSubFieldValue="aut" />
+        <marcField xpath="" type="datafield" mainTag="245" ind1="1" ind2="X" subTag="a" reuseMode="mainField" rulesetName="TitleDocMain" />
+        <marcField xpath="" type="datafield" mainTag="245" ind1="1" ind2="X" subTag="b" reuseMode="subField" rulesetName="TitleDocSub1" />
+        <marcField xpath="" type="datafield" mainTag="245" ind1="1" ind2="X" subTag="c" reuseMode="subField" rulesetName="NoteStatementOfResponsibility" />
+
+
+        <marcField xpath="" type="datafield" mainTag="245" ind1="_" ind2="_" subTag="a" reuseMode="mainField" rulesetName="Edition" />
+
+        <marcField xpath="" type="datafield" mainTag="264" ind1="_" ind2="1" subTag="a" reuseMode="subField" rulesetName="PlaceOfPublication" />
+        <marcField xpath="" type="datafield" mainTag="264" ind1="_" ind2="1" subTag="b" reuseMode="subField" rulesetName="PublisherName" />
+        <marcField xpath="" type="datafield" mainTag="264" ind1="_" ind2="1" subTag="c" reuseMode="subField" rulesetName="PublicationYear" />
+        <marcField xpath="" type="datafield" mainTag="264" ind1="3" ind2="1" subTag="c" reuseMode="subField" rulesetName="PublicationStart" />
+
+        <marcField xpath="" type="datafield" mainTag="300" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="physicalDescriptionExtent" />
+
+        <!-- 
+ Inhaltstyp, Medientyp, Datenträgertyp  
+
+        <datafield tag="336" ind1=" " ind2=" ">
+            <subfield code="a">Text</subfield>
+            <subfield code="b">txt</subfield>
+            <subfield code="2">rdacontent</subfield>
+            </datafield>
+            <datafield tag="337" ind1=" " ind2=" ">
+            <subfield code="a">Computermedien</subfield>
+            <subfield code="b">c</subfield>
+            <subfield code="2">rdamedia</subfield>
+            </datafield>
+            <datafield tag="338" ind1=" " ind2=" ">
+            <subfield code="a">Online-Ressource</subfield>
+            <subfield code="b">cr</subfield>
+            <subfield code="2">rdacarrier</subfield>
+            </datafield>
+
+        -->
+        <marcField xpath="" type="datafield" mainTag="362" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="PublicationRun" />
+
+        <marcField xpath="" type="datafield" mainTag="490" ind1="1" ind2="_" subTag="a" reuseMode="mainField" rulesetName="TitleUnterreihe" />
+        <marcField xpath="" type="datafield" mainTag="490" ind1="1" ind2="_" subTag="v" reuseMode="subField" rulesetName="TitlePartNumber" />
+
+
+        <!--
+        Zugangsbedingungen (access status)
+        506 X# $a $f $u $2
+        • Indikator 1: X = 0 – ohne Zugriffsbeschränkung
+        • Indikator 1: X = 1 – mit Zugriffsbeschränkungen
+        • $a = Zugangsbedingungen, offizielle textliche Benennung
+        • $f = Zugangsbedingungen, standardisierte Terminologie
+        • $u = URL zum ausführlichen Beschreibungstext der Zugangsbedingungen
+        • $2 = Quelle des standardisierten Terms in $f (star = Standardized terminology for access restriction)
+-->
+
+        <marcField xpath="" type="datafield" mainTag="520" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="Abstract" />
+        <marcField xpath="" type="datafield" mainTag="521" ind1="8" ind2="_" subTag="a" reuseMode="subField" rulesetName="FSK" />
+
+
+        <!-- Rechtestatus (rights statement)
+
+540 ## $a $f $u $2
+    • $a = Nutzungs- und Vervielfältigungsrechte, offizielle textliche Benennung
+    • $f = Nutzungs- und Vervielfältigungsrechte, standardisierte Terminologie (verpflichtend für CC-Lizenzen)
+    • $u = URL zum ausführlichen Beschreibungstext der Nutzungs- und Vervielfältigungsrechte (z.B. Lizenzbestimmungen von Creative Commons)
+    • $2 = Quelle des standardisierten Terms in $f (cc = Creative Commons-Lizenzen, rs = Rights Statement) 
+
+
+-->
+
+        <marcField xpath="" type="datafield" mainTag="583" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="ActionNote" />
+        <marcField xpath="" type="datafield" mainTag="583" ind1="1" ind2="_" subTag="f" reuseMode="subField" rulesetName="LegalBasis" />
+        <marcField xpath="" type="datafield" mainTag="583" ind1="1" ind2="_" subTag="5" reuseMode="subField" rulesetName="ISIL" />
+
+        <marcField xpath="" type="datafield" mainTag="653" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="SubjectTopic" />
+
+
+        <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="g" reuseMode="subField" rulesetName="CurrentNoSorting" />
+
+
+        <marcField xpath="" type="datafield" mainTag="856" ind1="4" ind2="0" subTag="u" reuseMode="subField" rulesetName="URL" />
+        <marcField xpath="" type="datafield" mainTag="856" ind1="4" ind2="0" subTag="x" reuseMode="subField" rulesetName="InternalNote" />
+
+
+        <!--
+        Vorgänger
+        780 0X $t $w
+        • Indikator 2: X = Art der Beziehung, z.B. „Fortsetzung von“, „Ersatz von“, „Darin aufgegangen“ usw.
+        • $t = Titel des Vorgängers
+        • $w = ID des Vorgängers (z.B. ZDB-ID (DE-600))
+        -->
+        <!--
+        Nachfolger
+    785 0X $t $w
+    • Indikator 2: X = Art der Beziehung, z.B. „Fortgesetzt durch“, „Ersetzt durch“, „Aufgegangen in“ usw.
+    • $t = Titel des Vorgängers
+-	$w = ID des Vorgängers (z.B. ZDB-ID (DE-600))
         
-        <!-- sample parameter -->
-        <value>test</value>
-        <!-- display button to finish the task directly from within the entered plugin -->
-        <allowTaskFinishButtons>true</allowTaskFinishButtons>
+-->
+
+        <!--
+        Herausgeber*in 
+        700
+        edt
+        Mitwirkende
+        700
+        ctb
+        Übersetzer*in
+        700
+        trl
+        Illustrator*in
+        700
+        ill
+        Fotograf*in
+        700
+        pht
+        Sonstige beteiligte Person
+        700
+        oth
+        Herausgebende Körperschaft
+        710
+        isb
+        Sonstige beteiligte Körperschaft
+        710
+        oth
+
+        856 ## $q (Dateiformat)
+856 ## $s (Dateigröße)
+-->
+
     </config>
 
 </config_plugin>
