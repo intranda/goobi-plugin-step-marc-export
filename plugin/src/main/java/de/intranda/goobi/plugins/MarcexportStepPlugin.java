@@ -48,12 +48,10 @@ import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
-import ugh.dl.Corporate;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
 import ugh.dl.MetadataType;
-import ugh.dl.Person;
 import ugh.dl.Prefs;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
@@ -73,6 +71,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     private static final Namespace marc = Namespace.getNamespace("marc", "http://www.loc.gov/MARC21/slim");
 
     private List<MarcMetadataField> marcFields = new ArrayList<>();
+    private List<MarcDocstructField> docstructFields = new ArrayList<>();
 
     @Override
     public void initialize(Step step, String returnPath) {
@@ -92,12 +91,23 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String subTag = hc.getString("@subTag");
             String repetitionMode = hc.getString("@reuseMode", "none");
             String rulesetName = hc.getString("@rulesetName");
-            String additionalSubFieldCode=hc.getString("@additionalSubFieldCode");
-            String additionalSubFieldValue=hc.getString("@additionalSubFieldValue");
-            MarcMetadataField mmf = new MarcMetadataField(xpath, type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName, additionalSubFieldCode, additionalSubFieldValue);
+            String additionalSubFieldCode = hc.getString("@additionalSubFieldCode");
+            String additionalSubFieldValue = hc.getString("@additionalSubFieldValue");
+            MarcMetadataField mmf = new MarcMetadataField(xpath, type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName,
+                    additionalSubFieldCode, additionalSubFieldValue, hc.getBoolean("@anchorMetadata", false), hc.getString("@conditionField", null),
+                    hc.getString("@conditionValue", null), hc.getString("@conditionType", "is"));
             marcFields.add(mmf);
         }
 
+        hcl = myconfig.configurationsAt("/doctype");
+        for (HierarchicalConfiguration hc : hcl) {
+            boolean exportDocstruct = hc.getBoolean("@export");
+            String docstructName = hc.getString("@rulesetName");
+            String leader6 = hc.getString("@leader6");
+            String leader7 = hc.getString("@leader7");
+            String leader19 = hc.getString("@leader19");
+            docstructFields.add(new MarcDocstructField(exportDocstruct, docstructName, leader6, leader7, leader19));
+        }
     }
 
     @Override
@@ -145,24 +155,273 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     public PluginReturnValue run() {
         boolean successful = true;
         // your logic goes here
+        List<DocStruct> docstructList = new ArrayList<>();
 
-        DocStruct docstruct = null;
         Prefs prefs = step.getProzess().getRegelsatz().getPreferences();
+        Fileformat ff = getFileformat();
+        if (ff == null) {
+            // log error message
+            return PluginReturnValue.ERROR;
+        }
         try {
-            Fileformat ff = step.getProzess().readMetadataFile();
-            docstruct = ff.getDigitalDocument().getLogicalDocStruct();
-
-        } catch (ReadException | PreferencesException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
-            log.error(e);
+            DocStruct docstruct = ff.getDigitalDocument().getLogicalDocStruct();
+            docstructList.add(docstruct);
+            if (docstruct.getType().isAnchor()) {
+                docstructList.add(docstruct.getAllChildren().get(0));
+            }
+        } catch (PreferencesException e1) {
+            log.error(e1);
         }
 
+        for (DocStruct docstruct : docstructList) {
+
+            MarcDocstructField currentField = null;
+
+            for (MarcDocstructField field : docstructFields) {
+                if (field.getDocstructName().equals(docstruct.getType().getName())) {
+                    currentField = field;
+                    break;
+                }
+            }
+
+            // TODO check if anchor needs to be exported, check if it is master record
+
+            if (currentField == null || !currentField.isExportDocstruct()) {
+                continue;
+            }
+
+            StringBuilder leader = createLeader(currentField);
+
+            Document marcDoc = new Document();
+            Element recordElement = new Element("record", marc);
+            marcDoc.setRootElement(recordElement);
+
+            Element leaderElement = new Element("leader", marc);
+            leaderElement.setText(leader.toString());
+            recordElement.addContent(leaderElement);
+            Element marcField = null;
+            for (MarcMetadataField configuredField : marcFields) {
+                String type = configuredField.getRulesetName();
+                MetadataType mdt = prefs.getMetadataTypeByName(type);
+                MetadataType conditionType = null;
+                if (StringUtils.isNotBlank(configuredField.getConditionField())) {
+                    conditionType = prefs.getMetadataTypeByName(configuredField.getConditionField());
+                }
+                if (mdt.isCorporate()) {
+                    //                List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
+                } else if (mdt.getIsPerson()) {
+                    //                List<Person> list = docstruct.getAllPersonsByType(mdt);
+                } else {
+                    marcField = writeMetadata(docstruct, recordElement, marcField, configuredField, mdt, conditionType);
+                }
+            }
+
+            XMLOutputter out = new XMLOutputter();
+            out.setFormat(Format.getPrettyFormat());
+            try {
+                out.output(marcDoc, new FileOutputStream("/tmp/test.xml"));
+            } catch (IOException e) {
+                log.error(e);
+            }
+        }
+        log.info("Marcexport step plugin executed");
+        if (!successful) {
+            return PluginReturnValue.ERROR;
+        }
+        return PluginReturnValue.FINISH;
+    }
+
+    private Element writeMetadata(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, MetadataType mdt,
+            MetadataType conditionType) {
+
+        List<? extends Metadata> list = null;
+        if (configuredField.isAnchorMetadata()) {
+            if (docstruct.getParent() != null) {
+                list = docstruct.getParent().getAllMetadataByType(mdt);
+            } else {
+                return marcField;
+            }
+        } else {
+            list = docstruct.getAllMetadataByType(mdt);
+        }
+
+        // configured condition, check if they match
+        if (conditionType != null) {
+            List<? extends Metadata> conditionList = null;
+            if (configuredField.isAnchorMetadata()) {
+                if (docstruct.getParent() != null) {
+                    conditionList = docstruct.getParent().getAllMetadataByType(conditionType);
+                } else {
+                    return marcField;
+                }
+            } else {
+                conditionList = docstruct.getAllMetadataByType(conditionType);
+            }
+
+            if (conditionList == null || conditionList.isEmpty()) {
+                return marcField;
+            }
+            boolean match = false;
+            for (Metadata md : conditionList) {
+                switch (configuredField.getConditionType()) {
+                    case "is":
+                        if (md.getValue().equals(configuredField.getConditionValue())) {
+                            match = true;
+                        }
+                        break;
+                    case "not":
+                        if (!md.getValue().equals(configuredField.getConditionValue())) {
+                            match = true;
+                        }
+                        break;
+                    case "any":
+                        match = true;
+                        break;
+
+                    default:
+                        break;
+                }
+                if (!match) {
+                    return marcField;
+                }
+            }
+
+        }
+
+        if (list != null && !list.isEmpty()) {
+            // always create a new element
+            if ("none".equals(configuredField.getReuseMode())) {
+                marcField = createMainElement(recordElement, configuredField);
+            } else {
+                if (marcField != null && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
+                        && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
+                        && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")))) {
+                } else {
+                    marcField = createMainElement(recordElement, configuredField);
+                }
+            }
+        }
+
+        for (Metadata metadata : list) {
+            if ("controlfield".equals(configuredField.getFieldType())) {
+                marcField.setText(metadata.getValue());
+            } else {
+                Element subfield = new Element("subfield", marc);
+                subfield.setAttribute("code", configuredField.getMarcSubTag());
+                subfield.setText(metadata.getValue());
+                marcField.addContent(subfield);
+
+                if ("X".equals(marcField.getAttributeValue("ind2"))) {
+                    // sorting title
+                    int ind2Value = getSortingTitleNumber(metadata.getValue());
+                    marcField.setAttribute("ind2", "" + ind2Value);
+                }
+
+            }
+            if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
+                Element subfield = new Element("subfield", marc);
+                subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
+                subfield.setText(configuredField.getAdditionalSubFieldValue());
+                marcField.addContent(subfield);
+            }
+        }
+        return marcField;
+    }
+
+    private int getSortingTitleNumber(String value) {
+        if (value.startsWith("A ")) {
+            return 2;
+        } else if (value.startsWith("An ")) {
+            return 3;
+        } else if (value.startsWith("Das ")) {
+            return 4;
+        } else if (value.startsWith("De ")) {
+            return 3;
+        } else if (value.startsWith("Dem ")) {
+            return 4;
+        } else if (value.startsWith("Den ")) {
+            return 4;
+        } else if (value.startsWith("Der ")) {
+            return 4;
+        } else if (value.startsWith("Des ")) {
+            return 4;
+        } else if (value.startsWith("Die ")) {
+            return 4;
+        } else if (value.startsWith("Een ")) {
+            return 4;
+        } else if (value.startsWith("Ein ")) {
+            return 4;
+        } else if (value.startsWith("Eine ")) {
+            return 5;
+        } else if (value.startsWith("Einem ")) {
+            return 6;
+        } else if (value.startsWith("Einen ")) {
+            return 6;
+        } else if (value.startsWith("Einer ")) {
+            return 6;
+        } else if (value.startsWith("Eines ")) {
+            return 6;
+        } else if (value.startsWith("El ")) {
+            return 3;
+        } else if (value.startsWith("En ")) {
+            return 3;
+        } else if (value.startsWith("Et ")) {
+            return 3;
+        } else if (value.startsWith("Gli ")) {
+            return 4;
+        } else if (value.startsWith("Het ")) {
+            return 4;
+        } else if (value.startsWith("I ")) {
+            return 2;
+        } else if (value.startsWith("Il ")) {
+            return 3;
+        } else if (value.startsWith("L' ")) {
+            return 3;
+        } else if (value.startsWith("La ")) {
+            return 3;
+        } else if (value.startsWith("Las ")) {
+            return 4;
+        } else if (value.startsWith("Le ")) {
+            return 3;
+        } else if (value.startsWith("Les ")) {
+            return 4;
+        } else if (value.startsWith("Lo ")) {
+            return 3;
+        } else if (value.startsWith("Los ")) {
+            return 4;
+        } else if (value.startsWith("The ")) {
+            return 4;
+        } else if (value.startsWith("Un ")) {
+            return 3;
+        } else if (value.startsWith("Un' ")) {
+            return 4;
+        } else if (value.startsWith("Una ")) {
+            return 4;
+        } else if (value.startsWith("Unas ")) {
+            return 5;
+        } else if (value.startsWith("Une ")) {
+            return 4;
+        } else if (value.startsWith("Uno ")) {
+            return 4;
+        } else if (value.startsWith("Unos ")) {
+            return 5;
+        }
+        return 0;
+
+    }
+
+    private StringBuilder createLeader(MarcDocstructField docstruct) {
         StringBuilder leader = new StringBuilder();
-        leader.append("     "); // 00-04 - Record length, empty
+        leader.append("xxxxx"); // 00-04 - Record length, empty
         leader.append("n"); // 05 - Record status, n=new
-        leader.append("a"); // 06 - Type of record, a - Language material
+        if (StringUtils.isNotBlank(docstruct.getLeader6())) {
+            leader.append(docstruct.getLeader6());
+        } else {
+            leader.append("a"); // 06 - Type of record, a - Language material
+        }
         // 07 - Bibliographic level
-        if (docstruct.getType().isAnchor()) {
-            leader.append("s"); // Serial
+        if (StringUtils.isNotBlank(docstruct.getLeader7())) {
+            leader.append(docstruct.getLeader7());
         } else {
             leader.append("m"); // Monograph/Item
         }
@@ -175,8 +434,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         leader.append("u");// 17 - Encoding level u - Unknown
         leader.append("u"); // 18 - Descriptive cataloging form u - Unknown
         // 19 - Multipart resource record level
-        if (docstruct.getType().isAnchor()) {
-            leader.append("a"); // a - Set
+        if (StringUtils.isNotBlank(docstruct.getLeader19())) {
+            leader.append(docstruct.getLeader19());
         } else {
             leader.append(" ");
         }
@@ -185,75 +444,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         // 22 - Length of the implementation-defined portion
         // 23 - Undefined
         leader.append("4500");
-
-        Document marcDoc = new Document();
-        Element record = new Element("record", marc);
-        marcDoc.setRootElement(record);
-
-        Element leaderElement = new Element("leader", marc);
-        leaderElement.setText(leader.toString());
-        Element marcField = null;
-        for (MarcMetadataField configuredField : marcFields) {
-            String type = configuredField.getRulesetName();
-            MetadataType mdt = prefs.getMetadataTypeByName(type);
-            if (mdt.isCorporate()) {
-                List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
-            } else if (mdt.getIsPerson()) {
-                List<Person> list = docstruct.getAllPersonsByType(mdt);
-            } else {
-                List<? extends Metadata> list = docstruct.getAllMetadataByType(mdt);
-                if (list != null && !list.isEmpty()) {
-
-                    // always create a new element
-                    if ("none".equals(configuredField.getReuseMode())) {
-                        marcField = createMainElement(record, configuredField);
-                    } else {
-                        if (marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
-                                && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
-                                && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")))) {
-                        } else {
-                            marcField = createMainElement(record, configuredField);
-                            if ("X".equals(configuredField.getInd2())) {
-                                // sorting title
-                            } else {
-
-                            }
-                        }
-                    }
-                }
-
-                for (Metadata metadata : list) {
-                    if ("controlfield".equals(configuredField.getFieldType())) {
-                        marcField.setText(metadata.getValue());
-                    } else {
-                        Element subfield = new Element("subfield", marc);
-                        subfield.setAttribute("code", configuredField.getMarcSubTag());
-                        subfield.setText(metadata.getValue());
-                        marcField.addContent(subfield);
-                    }
-                    if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
-                        Element subfield = new Element("subfield", marc);
-                        subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
-                        subfield.setText(configuredField.getAdditionalSubFieldValue());
-                        marcField.addContent(subfield);
-                    }
-                }
-            }
-        }
-
-        XMLOutputter out = new XMLOutputter();
-        out.setFormat(Format.getPrettyFormat());
-        try {
-            out.output(marcDoc, new FileOutputStream("/tmp/test.xml"));
-        } catch (IOException e) {
-            log.error(e);
-        }
-
-        log.info("Marcexport step plugin executed");
-        if (!successful) {
-            return PluginReturnValue.ERROR;
-        }
-        return PluginReturnValue.FINISH;
+        return leader;
     }
 
     private Element createMainElement(Element rootElement, MarcMetadataField configuredField) {
@@ -265,5 +456,15 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
         rootElement.addContent(element);
         return element;
+    }
+
+    private Fileformat getFileformat() {
+        try {
+            return step.getProzess().readMetadataFile();
+        } catch (ReadException | PreferencesException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
+            log.error(e);
+        }
+        return null;
+
     }
 }

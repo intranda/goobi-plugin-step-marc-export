@@ -72,6 +72,11 @@
         <marcField xpath="" type="datafield" mainTag="490" ind1="1" ind2="_" subTag="a" reuseMode="mainField" rulesetName="TitleUnterreihe" />
         <marcField xpath="" type="datafield" mainTag="490" ind1="1" ind2="_" subTag="v" reuseMode="subField" rulesetName="TitlePartNumber" />
 
+        <marcField xpath="" type="datafield" mainTag="506" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="AccessLicense" 
+        conditionField="Copyright"
+        conditionValue="gesperrt"
+        conditionType="is"
+        />
 
         <!--
         Zugangsbedingungen (access status)
@@ -106,6 +111,9 @@
         <marcField xpath="" type="datafield" mainTag="653" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="SubjectTopic" />
 
 
+        <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="a" reuseMode="subField" rulesetName="TitleDocMain" anchorMetadata="true"/>
+        <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="b" reuseMode="subField" rulesetName="Edition" anchorMetadata="true"/>
+        <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="w" reuseMode="subField" rulesetName="CatalogIDDigital" anchorMetadata="true"/>
         <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="g" reuseMode="subField" rulesetName="CurrentNoSorting" />
 
 
@@ -158,6 +166,13 @@
         856 ## $q (Dateiformat)
 856 ## $s (Dateigröße)
 -->
+
+
+        <doctype export="true" rulesetName="PeriodicalVolume" leader6="a" leader7="b" leader19="" />
+        <doctype export="false" rulesetName="Periodical" leader6="a" leader7="s" leader19="" />
+        <doctype export="true" rulesetName="Monograph" leader6="a" leader7="m" leader19="" />
+        <doctype export="true" rulesetName="MultiVolumeWork" leader6="a" leader7="m" leader19="a" />
+        <doctype export="true" rulesetName="Volume" leader6="a" leader7="m" leader19="b" />
 
     </config>
 
