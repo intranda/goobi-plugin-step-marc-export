@@ -72,8 +72,12 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private static final Namespace marc = Namespace.getNamespace("marc", "http://www.loc.gov/MARC21/slim");
 
+    private static final String SUBFIELD_NAME = "subfield";
+
     private List<MarcMetadataField> marcFields = new ArrayList<>();
     private List<MarcDocstructField> docstructFields = new ArrayList<>();
+
+    private String exportFolder;
 
     @Override
     public void initialize(Step step, String returnPath) {
@@ -82,6 +86,11 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
         myconfig.setExpressionEngine(new XPathExpressionEngine());
+
+        exportFolder = myconfig.getString("/exportFolder");
+        if (!exportFolder.endsWith("/")) {
+            exportFolder = exportFolder + "/";
+        }
 
         List<HierarchicalConfiguration> hcl = myconfig.configurationsAt("/marcField");
         for (HierarchicalConfiguration hc : hcl) {
@@ -176,9 +185,16 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         for (DocStruct docstruct : docstructList) {
+            String identifier = null;
 
-            List additionalPersons = new ArrayList<>();
-            List additionalCorporations = new ArrayList<>();
+            List<Metadata> identifierList = docstruct.getAllIdentifierMetadata();
+            if (identifierList!= null) {
+                identifier=identifierList.get(0).getValue();
+            }
+            if (StringUtils.isBlank(identifier)) {
+                continue; // TODO better an error?
+            }
+
 
             MarcDocstructField currentField = null;
 
@@ -189,7 +205,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 }
             }
 
-            // TODO check if anchor needs to be exported, check if it is master record
+            // TODO check if anchor can be exported, check if it is the master record
 
             if (currentField == null || !currentField.isExportDocstruct()) {
                 continue;
@@ -205,8 +221,9 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             leaderElement.setText(leader.toString());
             recordElement.addContent(leaderElement);
             Element marcField = null;
-            boolean firstAuthorWritten = false;
-
+            Person firstAuthor = null;
+            Corporate firstCorp = null;
+            boolean firstPersonOrCorporateWritten = false;
             for (MarcMetadataField configuredField : marcFields) {
                 String type = configuredField.getRulesetName();
                 MetadataType mdt = prefs.getMetadataTypeByName(type);
@@ -218,8 +235,30 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     marcField = writeStaticMetadata(docstruct, recordElement, marcField, configuredField, conditionType);
                 } else if (mdt.getIsPerson()) {
                     List<Person> list = docstruct.getAllPersonsByType(mdt);
+                    if (list != null) {
+                        for (Person p : list) {
+                            if (!firstPersonOrCorporateWritten && configuredField.getMarcMainTag().equals("100")) {
+                                marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
+                                firstAuthor = p;
+                                firstPersonOrCorporateWritten = true;
+                            } else if ((firstAuthor == null || !firstAuthor.equals(p)) && configuredField.getMarcMainTag().equals("700")) {
+                                marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
+                            }
+                        }
+                    }
                 } else if (mdt.isCorporate()) {
                     List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
+                    if (list != null) {
+                        for (Corporate c : list) {
+                            if (!firstPersonOrCorporateWritten && configuredField.getMarcMainTag().equals("110")) {
+                                marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
+                                firstCorp = c;
+                                firstPersonOrCorporateWritten = true;
+                            } else if ((firstCorp == null || !firstCorp.equals(c)) && configuredField.getMarcMainTag().equals("710")) {
+                                marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
+                            }
+                        }
+                    }
                 } else {
                     marcField = writeMetadata(docstruct, recordElement, marcField, configuredField, mdt, conditionType);
                 }
@@ -228,7 +267,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             XMLOutputter out = new XMLOutputter();
             out.setFormat(Format.getPrettyFormat());
             try {
-                out.output(marcDoc, new FileOutputStream("/tmp/test.xml"));
+                out.output(marcDoc, new FileOutputStream(exportFolder +  identifier +".xml"));
             } catch (IOException e) {
                 log.error(e);
             }
@@ -238,6 +277,53 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             return PluginReturnValue.ERROR;
         }
         return PluginReturnValue.FINISH;
+    }
+
+    private Element writeCorporation(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, Corporate c,
+            MetadataType conditionType) {
+        // configured condition, check if they match
+        if (conditionType != null) {
+            boolean match = checkConditions(docstruct, configuredField, conditionType);
+            if (!match) {
+                return marcField;
+            }
+        }
+        marcField = generateMarcField(recordElement, marcField, configuredField);
+        Element subfield = new Element(SUBFIELD_NAME, marc);
+        subfield.setAttribute("code", configuredField.getMarcSubTag());
+        subfield.setText(c.getMainName());
+        marcField.addContent(subfield);
+        if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
+            Element secondSubfield = new Element(SUBFIELD_NAME, marc);
+            secondSubfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
+            secondSubfield.setText(configuredField.getAdditionalSubFieldValue());
+            marcField.addContent(secondSubfield);
+        }
+        return marcField;
+
+    }
+
+    private Element writePerson(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, Person p,
+            MetadataType conditionType) {
+        // configured condition, check if they match
+        if (conditionType != null) {
+            boolean match = checkConditions(docstruct, configuredField, conditionType);
+            if (!match) {
+                return marcField;
+            }
+        }
+        marcField = generateMarcField(recordElement, marcField, configuredField);
+        Element subfield = new Element(SUBFIELD_NAME, marc);
+        subfield.setAttribute("code", configuredField.getMarcSubTag());
+        subfield.setText(p.getLastname() + ", " + p.getFirstname());
+        marcField.addContent(subfield);
+        if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
+            Element secondSubfield = new Element(SUBFIELD_NAME, marc);
+            secondSubfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
+            secondSubfield.setText(configuredField.getAdditionalSubFieldValue());
+            marcField.addContent(secondSubfield);
+        }
+        return marcField;
     }
 
     private Element writeStaticMetadata(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField,
@@ -254,13 +340,13 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             if ("controlfield".equals(configuredField.getFieldType())) {
                 marcField.setText(configuredField.getStaticText());
             } else {
-                Element subfield = new Element("subfield", marc);
+                Element subfield = new Element(SUBFIELD_NAME, marc);
                 subfield.setAttribute("code", configuredField.getMarcSubTag());
                 subfield.setText(configuredField.getStaticText());
                 marcField.addContent(subfield);
             }
             if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
-                Element subfield = new Element("subfield", marc);
+                Element subfield = new Element(SUBFIELD_NAME, marc);
                 subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
                 subfield.setText(configuredField.getAdditionalSubFieldValue());
                 marcField.addContent(subfield);
@@ -302,7 +388,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             if ("controlfield".equals(configuredField.getFieldType())) {
                 marcField.setText(metadata.getValue());
             } else {
-                Element subfield = new Element("subfield", marc);
+                Element subfield = new Element(SUBFIELD_NAME, marc);
                 subfield.setAttribute("code", configuredField.getMarcSubTag());
                 subfield.setText(metadata.getValue());
                 marcField.addContent(subfield);
@@ -315,7 +401,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
             }
             if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
-                Element subfield = new Element("subfield", marc);
+                Element subfield = new Element(SUBFIELD_NAME, marc);
                 subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
                 subfield.setText(configuredField.getAdditionalSubFieldValue());
                 marcField.addContent(subfield);
