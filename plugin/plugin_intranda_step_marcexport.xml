@@ -47,62 +47,71 @@
 
         <marcField xpath="" type="datafield" mainTag="300" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="physicalDescriptionExtent" />
 
-        <!-- 
- Inhaltstyp, Medientyp, Datenträgertyp  
 
-        <datafield tag="336" ind1=" " ind2=" ">
-            <subfield code="a">Text</subfield>
-            <subfield code="b">txt</subfield>
-            <subfield code="2">rdacontent</subfield>
-            </datafield>
-            <datafield tag="337" ind1=" " ind2=" ">
-            <subfield code="a">Computermedien</subfield>
-            <subfield code="b">c</subfield>
-            <subfield code="2">rdamedia</subfield>
-            </datafield>
-            <datafield tag="338" ind1=" " ind2=" ">
-            <subfield code="a">Online-Ressource</subfield>
-            <subfield code="b">cr</subfield>
-            <subfield code="2">rdacarrier</subfield>
-            </datafield>
+        <!-- Inhaltstyp, Medientyp, Datenträgertyp -->
+        <marcField xpath="" type="datafield" mainTag="336" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="ContentType" additionalSubFieldCode="b" additionalSubFieldValue="txt"/> 
+        <marcField xpath="" type="datafield" mainTag="336" ind1="_" ind2="_" subTag="a" reuseMode="subField" text="rdacontent" conditionField="ContentType" conditionValue="Text" conditionType="is"/> 
 
-        -->
+        <marcField xpath="" type="datafield" mainTag="337" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="MediaType" additionalSubFieldCode="b" additionalSubFieldValue="c"/> 
+        <marcField xpath="" type="datafield" mainTag="337" ind1="_" ind2="_" subTag="a" reuseMode="subField" text="rdamedia" conditionField="MediaType" conditionValue="Computermedien" conditionType="is"/> 
+
+        <marcField xpath="" type="datafield" mainTag="338" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="DataMediumType" additionalSubFieldCode="b" additionalSubFieldValue="cr"/> 
+        <marcField xpath="" type="datafield" mainTag="338" ind1="_" ind2="_" subTag="a" reuseMode="subField" text="rdacarrier" conditionField="DataMediumType" conditionValue="Online-Ressource" conditionType="is"/> 
+
         <marcField xpath="" type="datafield" mainTag="362" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="PublicationRun" />
 
         <marcField xpath="" type="datafield" mainTag="490" ind1="1" ind2="_" subTag="a" reuseMode="mainField" rulesetName="TitleUnterreihe" />
         <marcField xpath="" type="datafield" mainTag="490" ind1="1" ind2="_" subTag="v" reuseMode="subField" rulesetName="TitlePartNumber" />
 
-        <marcField xpath="" type="datafield" mainTag="506" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="AccessLicense" 
-        conditionField="Copyright"
-        conditionValue="gesperrt"
-        conditionType="is"
-        />
+        <!-- restricted -->
+        <marcField xpath="" type="datafield" mainTag="506" ind1="1" ind2="_" subTag="a" reuseMode="subField" text="restricted access" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="is"/>
+        <marcField xpath="" type="datafield" mainTag="506" ind1="1" ind2="_" subTag="f" reuseMode="subField" text="Online access with authorization" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="is" />
+        <marcField xpath="" type="datafield" mainTag="506" ind1="1" ind2="_" subTag="u" reuseMode="subField" text="https://vocabularies.coar-repositories.org/access_rights/c_16ec/" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="is" />
+        <marcField xpath="" type="datafield" mainTag="506" ind1="1" ind2="_" subTag="u" reuseMode="subField" text="star" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="is" />        
 
-        <!--
-        Zugangsbedingungen (access status)
-        506 X# $a $f $u $2
-        • Indikator 1: X = 0 – ohne Zugriffsbeschränkung
-        • Indikator 1: X = 1 – mit Zugriffsbeschränkungen
-        • $a = Zugangsbedingungen, offizielle textliche Benennung
-        • $f = Zugangsbedingungen, standardisierte Terminologie
-        • $u = URL zum ausführlichen Beschreibungstext der Zugangsbedingungen
-        • $2 = Quelle des standardisierten Terms in $f (star = Standardized terminology for access restriction)
--->
+        <!-- open access -->
+        <marcField xpath="" type="datafield" mainTag="506" ind1="0" ind2="_" subTag="a" reuseMode="subField" text="open access" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="not"/>
+        <marcField xpath="" type="datafield" mainTag="506" ind1="0" ind2="_" subTag="f" reuseMode="subField" text="Unrestricted online access" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="not" />
+        <marcField xpath="" type="datafield" mainTag="506" ind1="0" ind2="_" subTag="u" reuseMode="subField" text="http://purl.org/coar/access_right/c_abf2" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="not" />
+        <marcField xpath="" type="datafield" mainTag="506" ind1="0" ind2="_" subTag="u" reuseMode="subField" text="star" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="not" />     
 
         <marcField xpath="" type="datafield" mainTag="520" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="Abstract" />
         <marcField xpath="" type="datafield" mainTag="521" ind1="8" ind2="_" subTag="a" reuseMode="subField" rulesetName="FSK" />
 
+        <!-- rights statement restricted -->
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="a" reuseMode="subField" text="Urheberrechtsschutz 1.0" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="is" additionalSubFieldCode="u" additionalSubFieldValue="https://rightsstatements.org/page/InC/1.0/"/>
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="2" reuseMode="subField" text="rs" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="is"/>
 
-        <!-- Rechtestatus (rights statement)
+        <!-- cc licenses -->
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="AccessLicense" 
+        conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="not"/>
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="f" reuseMode="subField" text="cc0-4.0.de" 
+        conditionField="AccessLicense" conditionValue="CC0" conditionType="is"  additionalSubFieldCode="u" additionalSubFieldValue="https://creativecommons.org/publicdomain/zero/1.0/"/>  
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="f" reuseMode="subField" text="cc-by-4.0.de" 
+        conditionField="AccessLicense" conditionValue="CC BY" conditionType="is"  additionalSubFieldCode="u" additionalSubFieldValue="https://creativecommons.org/licenses/by/4.0/"/>  
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="f" reuseMode="subField" text="cc-by-sa-4.0.de" 
+        conditionField="AccessLicense" conditionValue="CC BY-SA" conditionType="is"  additionalSubFieldCode="u" additionalSubFieldValue="https://creativecommons.org/licenses/by-sa/4.0/"/>  
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="f" reuseMode="subField" text="cc-by-nd-4.0.de" 
+        conditionField="AccessLicense" conditionValue="CC BY-ND" conditionType="is"  additionalSubFieldCode="u" additionalSubFieldValue="https://creativecommons.org/licenses/by-nd/4.0/"/>  
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="f" reuseMode="subField" text="cc-by-nc-4.0.de" 
+        conditionField="AccessLicense" conditionValue="CC BY-NC" conditionType="is"  additionalSubFieldCode="u" additionalSubFieldValue="https://creativecommons.org/licenses/by-nc/4.0/"/>  
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="f" reuseMode="subField" text="cc-by-nc-sa-4.0.de" 
+        conditionField="AccessLicense" conditionValue="CC BY-NC-SA" conditionType="is"  additionalSubFieldCode="u" additionalSubFieldValue="https://creativecommons.org/licenses/by-nc-sa/4.0/"/>  
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="f" reuseMode="subField" text="cc-by-nc-nd-4.0.de" 
+        conditionField="AccessLicense" conditionValue="CC BY-NC-ND" conditionType="is"  additionalSubFieldCode="u" additionalSubFieldValue="https://creativecommons.org/licenses/by-nc-nd/4.0/"/> 
+        <marcField xpath="" type="datafield" mainTag="540" ind1="_" ind2="_" subTag="2" reuseMode="subField" text="cc" conditionField="AccessLicense" conditionValue="Rechte vorbehalten" conditionType="not"/>
 
-540 ## $a $f $u $2
-    • $a = Nutzungs- und Vervielfältigungsrechte, offizielle textliche Benennung
-    • $f = Nutzungs- und Vervielfältigungsrechte, standardisierte Terminologie (verpflichtend für CC-Lizenzen)
-    • $u = URL zum ausführlichen Beschreibungstext der Nutzungs- und Vervielfältigungsrechte (z.B. Lizenzbestimmungen von Creative Commons)
-    • $2 = Quelle des standardisierten Terms in $f (cc = Creative Commons-Lizenzen, rs = Rights Statement) 
 
-
--->
 
         <marcField xpath="" type="datafield" mainTag="583" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="ActionNote" />
         <marcField xpath="" type="datafield" mainTag="583" ind1="1" ind2="_" subTag="f" reuseMode="subField" rulesetName="LegalBasis" />
@@ -110,32 +119,20 @@
 
         <marcField xpath="" type="datafield" mainTag="653" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="SubjectTopic" />
 
-
+        <!-- relation to host -->
         <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="a" reuseMode="subField" rulesetName="TitleDocMain" anchorMetadata="true"/>
         <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="b" reuseMode="subField" rulesetName="Edition" anchorMetadata="true"/>
         <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="w" reuseMode="subField" rulesetName="CatalogIDDigital" anchorMetadata="true"/>
         <marcField xpath="" type="datafield" mainTag="773" ind1="1" ind2="8" subTag="g" reuseMode="subField" rulesetName="CurrentNoSorting" />
+        <!-- preceding / successeding -->
+        <marcField xpath="" type="datafield" mainTag="780" ind1="10" ind2="0" subTag="t" reuseMode="subField" rulesetName="PrecedingTitle1" />
+        <marcField xpath="" type="datafield" mainTag="780" ind1="10" ind2="0" subTag="w" reuseMode="subField" rulesetName="CatalogIDPredecessorPeriodical1" />
+        <marcField xpath="" type="datafield" mainTag="785" ind1="10" ind2="0" subTag="t" reuseMode="subField" rulesetName="SucceedingTitle1" />
+        <marcField xpath="" type="datafield" mainTag="785" ind1="10" ind2="0" subTag="w" reuseMode="subField" rulesetName="CatalogIDSuccessorPeriodical1" />
+   
 
-
-        <marcField xpath="" type="datafield" mainTag="856" ind1="4" ind2="0" subTag="u" reuseMode="subField" rulesetName="URL" />
-        <marcField xpath="" type="datafield" mainTag="856" ind1="4" ind2="0" subTag="x" reuseMode="subField" rulesetName="InternalNote" />
-
-
-        <!--
-        Vorgänger
-        780 0X $t $w
-        • Indikator 2: X = Art der Beziehung, z.B. „Fortsetzung von“, „Ersatz von“, „Darin aufgegangen“ usw.
-        • $t = Titel des Vorgängers
-        • $w = ID des Vorgängers (z.B. ZDB-ID (DE-600))
-        -->
-        <!--
-        Nachfolger
-    785 0X $t $w
-    • Indikator 2: X = Art der Beziehung, z.B. „Fortgesetzt durch“, „Ersetzt durch“, „Aufgegangen in“ usw.
-    • $t = Titel des Vorgängers
--	$w = ID des Vorgängers (z.B. ZDB-ID (DE-600))
-        
--->
+<marcField xpath="" type="datafield" mainTag="856" ind1="4" ind2="0" subTag="u" reuseMode="subField" rulesetName="URL" />
+<marcField xpath="" type="datafield" mainTag="856" ind1="4" ind2="0" subTag="x" reuseMode="subField" rulesetName="InternalNote" />
 
         <!--
         Herausgeber*in 

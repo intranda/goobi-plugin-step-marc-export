@@ -48,10 +48,12 @@ import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.dl.Corporate;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
 import ugh.dl.MetadataType;
+import ugh.dl.Person;
 import ugh.dl.Prefs;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
@@ -175,6 +177,9 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         for (DocStruct docstruct : docstructList) {
 
+            List additionalPersons = new ArrayList<>();
+            List additionalCorporations = new ArrayList<>();
+
             MarcDocstructField currentField = null;
 
             for (MarcDocstructField field : docstructFields) {
@@ -200,6 +205,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             leaderElement.setText(leader.toString());
             recordElement.addContent(leaderElement);
             Element marcField = null;
+            boolean firstAuthorWritten = false;
+
             for (MarcMetadataField configuredField : marcFields) {
                 String type = configuredField.getRulesetName();
                 MetadataType mdt = prefs.getMetadataTypeByName(type);
@@ -209,10 +216,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 }
                 if (type == null) {
                     marcField = writeStaticMetadata(docstruct, recordElement, marcField, configuredField, conditionType);
-                } else if (mdt.isCorporate()) {
-                    //                List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
                 } else if (mdt.getIsPerson()) {
-                    //                List<Person> list = docstruct.getAllPersonsByType(mdt);
+                    List<Person> list = docstruct.getAllPersonsByType(mdt);
+                } else if (mdt.isCorporate()) {
+                    List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
                 } else {
                     marcField = writeMetadata(docstruct, recordElement, marcField, configuredField, mdt, conditionType);
                 }
