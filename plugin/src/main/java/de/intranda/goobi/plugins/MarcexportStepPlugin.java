@@ -95,7 +95,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String additionalSubFieldValue = hc.getString("@additionalSubFieldValue");
             MarcMetadataField mmf = new MarcMetadataField(xpath, type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName,
                     additionalSubFieldCode, additionalSubFieldValue, hc.getBoolean("@anchorMetadata", false), hc.getString("@conditionField", null),
-                    hc.getString("@conditionValue", null), hc.getString("@conditionType", "is"));
+                    hc.getString("@conditionValue", null), hc.getString("@conditionType", "is"), hc.getString("@text", ""));
             marcFields.add(mmf);
         }
 
@@ -142,7 +142,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public HashMap<String, StepReturnValue> validate() {
-        return null;
+        return new HashMap<>();
     }
 
     @Override
@@ -207,7 +207,9 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 if (StringUtils.isNotBlank(configuredField.getConditionField())) {
                     conditionType = prefs.getMetadataTypeByName(configuredField.getConditionField());
                 }
-                if (mdt.isCorporate()) {
+                if (type == null) {
+                    marcField = writeStaticMetadata(docstruct, recordElement, marcField, configuredField, conditionType);
+                } else if (mdt.isCorporate()) {
                     //                List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
                 } else if (mdt.getIsPerson()) {
                     //                List<Person> list = docstruct.getAllPersonsByType(mdt);
@@ -231,6 +233,37 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         return PluginReturnValue.FINISH;
     }
 
+    private Element writeStaticMetadata(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField,
+            MetadataType conditionType) {
+        if (StringUtils.isNotBlank(configuredField.getStaticText())) {
+            // configured condition, check if they match
+            if (conditionType != null) {
+                boolean match = checkConditions(docstruct, configuredField, conditionType);
+                if (!match) {
+                    return marcField;
+                }
+            }
+            marcField = generateMarcField(recordElement, marcField, configuredField);
+            if ("controlfield".equals(configuredField.getFieldType())) {
+                marcField.setText(configuredField.getStaticText());
+            } else {
+                Element subfield = new Element("subfield", marc);
+                subfield.setAttribute("code", configuredField.getMarcSubTag());
+                subfield.setText(configuredField.getStaticText());
+                marcField.addContent(subfield);
+            }
+            if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
+                Element subfield = new Element("subfield", marc);
+                subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
+                subfield.setText(configuredField.getAdditionalSubFieldValue());
+                marcField.addContent(subfield);
+            }
+
+        }
+
+        return marcField;
+    }
+
     private Element writeMetadata(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, MetadataType mdt,
             MetadataType conditionType) {
 
@@ -247,59 +280,15 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         // configured condition, check if they match
         if (conditionType != null) {
-            List<? extends Metadata> conditionList = null;
-            if (configuredField.isAnchorMetadata()) {
-                if (docstruct.getParent() != null) {
-                    conditionList = docstruct.getParent().getAllMetadataByType(conditionType);
-                } else {
-                    return marcField;
-                }
-            } else {
-                conditionList = docstruct.getAllMetadataByType(conditionType);
-            }
-
-            if (conditionList == null || conditionList.isEmpty()) {
+            boolean match = checkConditions(docstruct, configuredField, conditionType);
+            if (!match) {
                 return marcField;
             }
-            boolean match = false;
-            for (Metadata md : conditionList) {
-                switch (configuredField.getConditionType()) {
-                    case "is":
-                        if (md.getValue().equals(configuredField.getConditionValue())) {
-                            match = true;
-                        }
-                        break;
-                    case "not":
-                        if (!md.getValue().equals(configuredField.getConditionValue())) {
-                            match = true;
-                        }
-                        break;
-                    case "any":
-                        match = true;
-                        break;
-
-                    default:
-                        break;
-                }
-                if (!match) {
-                    return marcField;
-                }
-            }
-
         }
 
         if (list != null && !list.isEmpty()) {
             // always create a new element
-            if ("none".equals(configuredField.getReuseMode())) {
-                marcField = createMainElement(recordElement, configuredField);
-            } else {
-                if (marcField != null && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
-                        && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
-                        && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")))) {
-                } else {
-                    marcField = createMainElement(recordElement, configuredField);
-                }
-            }
+            marcField = generateMarcField(recordElement, marcField, configuredField);
         }
 
         for (Metadata metadata : list) {
@@ -326,6 +315,60 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             }
         }
         return marcField;
+    }
+
+    private Element generateMarcField(Element recordElement, Element marcField, MarcMetadataField configuredField) {
+        if ("none".equals(configuredField.getReuseMode())) {
+            marcField = createMainElement(recordElement, configuredField);
+        } else {
+            if (marcField != null && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
+                    && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
+                    && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")))) {
+                // re-use field
+            } else {
+                marcField = createMainElement(recordElement, configuredField);
+            }
+        }
+        return marcField;
+    }
+
+    private boolean checkConditions(DocStruct docstruct, MarcMetadataField configuredField, MetadataType conditionType) {
+        List<? extends Metadata> conditionList = null;
+        if (configuredField.isAnchorMetadata()) {
+            if (docstruct.getParent() != null) {
+                conditionList = docstruct.getParent().getAllMetadataByType(conditionType);
+            } else {
+                return false;
+            }
+        } else {
+            conditionList = docstruct.getAllMetadataByType(conditionType);
+        }
+
+        if (conditionList == null || conditionList.isEmpty()) {
+            return false;
+        }
+        boolean match = false;
+        for (Metadata md : conditionList) {
+            switch (configuredField.getConditionType()) {
+                case "is":
+                    if (md.getValue().equals(configuredField.getConditionValue())) {
+                        match = true;
+                    }
+                    break;
+                case "not":
+                    if (!md.getValue().equals(configuredField.getConditionValue())) {
+                        match = true;
+                    }
+                    break;
+                case "any":
+                    match = true;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+        return match;
     }
 
     private int getSortingTitleNumber(String value) {

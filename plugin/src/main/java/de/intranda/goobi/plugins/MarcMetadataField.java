@@ -36,4 +36,6 @@ public class MarcMetadataField {
     private String conditionField;
     private String conditionValue;
     private String conditionType; // is, not, any
+
+    private String staticText;
 }
