@@ -188,13 +188,12 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String identifier = null;
 
             List<Metadata> identifierList = docstruct.getAllIdentifierMetadata();
-            if (identifierList!= null) {
-                identifier=identifierList.get(0).getValue();
+            if (identifierList != null) {
+                identifier = identifierList.get(0).getValue();
             }
             if (StringUtils.isBlank(identifier)) {
-                continue; // TODO better an error?
+                continue;
             }
-
 
             MarcDocstructField currentField = null;
 
@@ -267,7 +266,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             XMLOutputter out = new XMLOutputter();
             out.setFormat(Format.getPrettyFormat());
             try {
-                out.output(marcDoc, new FileOutputStream(exportFolder +  identifier +".xml"));
+                out.output(marcDoc, new FileOutputStream(exportFolder + step.getProzess().getId() + "/" + identifier + ".xml"));
             } catch (IOException e) {
                 log.error(e);
             }
