@@ -2,6 +2,8 @@ package de.intranda.goobi.plugins;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 
 /**
@@ -43,6 +45,7 @@ import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
 
 import de.sub.goobi.config.ConfigPlugins;
+import de.sub.goobi.helper.StorageProvider;
 import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
@@ -266,6 +269,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             XMLOutputter out = new XMLOutputter();
             out.setFormat(Format.getPrettyFormat());
             try {
+                Path outputFolder = Paths.get(exportFolder, "" + step.getProzess().getId());
+                if (!StorageProvider.getInstance().isDirectory(outputFolder) ) {
+                    StorageProvider.getInstance().createDirectories(outputFolder);
+                }
                 out.output(marcDoc, new FileOutputStream(exportFolder + step.getProzess().getId() + "/" + identifier + ".xml"));
             } catch (IOException e) {
                 log.error(e);
