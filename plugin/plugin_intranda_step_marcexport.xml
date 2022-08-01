@@ -132,10 +132,11 @@
         <marcField xpath="" type="datafield" mainTag="856" ind1="4" ind2="0" subTag="u" reuseMode="subField" rulesetName="URL" />
         <marcField xpath="" type="datafield" mainTag="856" ind1="4" ind2="0" subTag="x" reuseMode="subField" rulesetName="InternalNote" />
 
-        <!--
-        856 ## $q (Dateiformat)
-856 ## $s (Dateigröße)
--->
+        <marcField xpath="" type="datafield" mainTag="856" ind1="_" ind2="_" subTag="q" reuseMode="subField" rulesetName="FileFormat" />
+        <marcField xpath="" type="datafield" mainTag="856" ind1="_" ind2="_" subTag="s" reuseMode="subField" rulesetName="FileSize" />
+
+
+
 
 
         <doctype export="true" rulesetName="PeriodicalVolume" leader6="a" leader7="b" leader19="" />
