@@ -46,7 +46,6 @@ import org.jdom2.output.XMLOutputter;
 
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.StorageProvider;
-import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -60,7 +59,6 @@ import ugh.dl.Person;
 import ugh.dl.Prefs;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
-import ugh.exceptions.WriteException;
 
 @PluginImplementation
 @Log4j2
@@ -603,7 +601,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     private Fileformat getFileformat() {
         try {
             return step.getProzess().readMetadataFile();
-        } catch (ReadException | PreferencesException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
+        } catch (ReadException | IOException | SwapException e) {
             log.error(e);
         }
         return null;
