@@ -142,7 +142,7 @@
         <doctype export="true" rulesetName="PeriodicalVolume" leader6="a" leader7="b" leader19="" />
         <doctype export="false" rulesetName="Periodical" leader6="a" leader7="s" leader19="" />
         <doctype export="true" rulesetName="Monograph" leader6="a" leader7="m" leader19="" />
-        <doctype export="true" rulesetName="MultiVolumeWork" leader6="a" leader7="m" leader19="a" />
+        <doctype export="true" rulesetName="MultiVolumeWork" leader6="a" leader7="m" leader19="a" dependencyType="child" dependencyMetadata="InternalNote" dependencyValue="AnchorMaster"/>
         <doctype export="true" rulesetName="Volume" leader6="a" leader7="m" leader19="b" />
 
     </config>

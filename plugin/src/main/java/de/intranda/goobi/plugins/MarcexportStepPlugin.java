@@ -118,7 +118,11 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String leader6 = hc.getString("@leader6");
             String leader7 = hc.getString("@leader7");
             String leader19 = hc.getString("@leader19");
-            docstructFields.add(new MarcDocstructField(exportDocstruct, docstructName, leader6, leader7, leader19));
+            String dependencyType = hc.getString("@dependencyType");
+            String dependencyMetadata = hc.getString("@dependencyMetadata");
+            String dependencyValue = hc.getString("@dependencyValue");
+            docstructFields.add(new MarcDocstructField(exportDocstruct, docstructName, leader6, leader7, leader19, dependencyType, dependencyMetadata,
+                    dependencyValue));
         }
     }
 
@@ -192,9 +196,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             if (identifierList != null) {
                 identifier = identifierList.get(0).getValue();
             }
-            if (StringUtils.isBlank(identifier)) {
-                continue;
-            }
 
             MarcDocstructField currentField = null;
 
@@ -205,9 +206,34 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 }
             }
 
-            // TODO check if anchor can be exported, check if it is the master record
+            // check if anchor can be exported, check if it is the master record
+            boolean exportable = true;
+            if (StringUtils.isNotBlank(currentField.getDependencyType())) {
+                DocStruct dsToCheck = null;
+                if (docstruct.getType().isAnchor()) {
+                    if (currentField.getDependencyType().equals("anchor")) {
+                        dsToCheck = docstruct;
+                    } else {
+                        dsToCheck = docstruct.getAllChildren().get(0);
+                    }
+                } else {
+                    if (currentField.getDependencyType().equals("anchor")) {
+                        dsToCheck = docstruct.getParent();
+                    } else {
+                        dsToCheck = docstruct;
+                    }
+                }
+                boolean metadataFoundAndValid = false;
+                for (Metadata md : dsToCheck.getAllMetadata()) {
+                    if (md.getType().getName().equals(currentField.getDependencyMetadata())
+                            && md.getValue().equals(currentField.getDependencyValue())) {
+                        metadataFoundAndValid = true;
+                    }
+                }
+                exportable = metadataFoundAndValid;
+            }
 
-            if (currentField == null || !currentField.isExportDocstruct()) {
+            if (!exportable || StringUtils.isBlank(identifier) || currentField == null || !currentField.isExportDocstruct()) {
                 continue;
             }
 
@@ -268,7 +294,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             out.setFormat(Format.getPrettyFormat());
             try {
                 Path outputFolder = Paths.get(exportFolder, "" + step.getProzess().getId());
-                if (!StorageProvider.getInstance().isDirectory(outputFolder) ) {
+                if (!StorageProvider.getInstance().isDirectory(outputFolder)) {
                     StorageProvider.getInstance().createDirectories(outputFolder);
                 }
                 out.output(marcDoc, new FileOutputStream(exportFolder + step.getProzess().getId() + "/" + identifier + ".xml"));

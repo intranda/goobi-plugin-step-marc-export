@@ -15,4 +15,7 @@ public class MarcDocstructField {
     private String leader7;
     private String leader19;
 
+    private String dependencyType; // anchor | child
+    private String dependencyMetadata; // name of the metadata to check
+    private String dependencyValue; // value of the metadata to check
 }
