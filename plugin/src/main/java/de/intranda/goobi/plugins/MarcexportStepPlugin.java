@@ -45,6 +45,7 @@ import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
 
 import de.sub.goobi.config.ConfigPlugins;
+import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.StorageProvider;
 import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
@@ -181,6 +182,18 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
         try {
             DocStruct docstruct = ff.getDigitalDocument().getLogicalDocStruct();
+            boolean identifierExists = false;
+            for (Metadata md :     docstruct.getAllMetadata()) {
+                if (md.getType().isIdentifier()) {
+                    identifierExists = true;
+                }
+            }
+
+            if (!identifierExists) {
+                Helper.setFehlerMeldung("Missing identifier metadata");
+                return PluginReturnValue.ERROR;
+            }
+
             docstructList.add(docstruct);
             if (docstruct.getType().isAnchor()) {
                 docstructList.add(docstruct.getAllChildren().get(0));
@@ -188,6 +201,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         } catch (PreferencesException e1) {
             log.error(e1);
         }
+
+        // if id is missing
+
+
 
         for (DocStruct docstruct : docstructList) {
             String identifier = null;
