@@ -8,10 +8,6 @@ import lombok.NonNull;
 @AllArgsConstructor
 public class MarcMetadataField {
 
-    @NonNull
-    // describes the xpath to the
-    private String xpath;
-
     private String fieldType; // controlfield, datafield (default)
 
     @NonNull
@@ -31,7 +27,6 @@ public class MarcMetadataField {
     private String additionalSubFieldValue;
 
     private boolean anchorMetadata = false;
-
 
     private String conditionField;
     private String conditionValue;

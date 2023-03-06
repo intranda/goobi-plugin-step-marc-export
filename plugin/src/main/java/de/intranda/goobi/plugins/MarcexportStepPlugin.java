@@ -96,7 +96,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         List<HierarchicalConfiguration> hcl = myconfig.configurationsAt("/marcField");
         for (HierarchicalConfiguration hc : hcl) {
-            String xpath = hc.getString("@xpath");
             String type = hc.getString("@type", "datafield");
             String mainTag = hc.getString("@mainTag");
             String ind1 = hc.getString("@ind1").replace("_", " ");
@@ -106,7 +105,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String rulesetName = hc.getString("@rulesetName");
             String additionalSubFieldCode = hc.getString("@additionalSubFieldCode");
             String additionalSubFieldValue = hc.getString("@additionalSubFieldValue");
-            MarcMetadataField mmf = new MarcMetadataField(xpath, type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName,
+            MarcMetadataField mmf = new MarcMetadataField(type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName,
                     additionalSubFieldCode, additionalSubFieldValue, hc.getBoolean("@anchorMetadata", false), hc.getString("@conditionField", null),
                     hc.getString("@conditionValue", null), hc.getString("@conditionType", "is"), hc.getString("@text", ""));
             marcFields.add(mmf);
@@ -183,7 +182,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         try {
             DocStruct docstruct = ff.getDigitalDocument().getLogicalDocStruct();
             boolean identifierExists = false;
-            for (Metadata md :     docstruct.getAllMetadata()) {
+            for (Metadata md : docstruct.getAllMetadata()) {
                 if (md.getType().isIdentifier()) {
                     identifierExists = true;
                 }
@@ -203,8 +202,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         // if id is missing
-
-
 
         for (DocStruct docstruct : docstructList) {
             String identifier = null;
@@ -228,17 +225,15 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             if (StringUtils.isNotBlank(currentField.getDependencyType())) {
                 DocStruct dsToCheck = null;
                 if (docstruct.getType().isAnchor()) {
-                    if (currentField.getDependencyType().equals("anchor")) {
+                    if ("anchor".equals(currentField.getDependencyType())) {
                         dsToCheck = docstruct;
                     } else {
                         dsToCheck = docstruct.getAllChildren().get(0);
                     }
+                } else if ("anchor".equals(currentField.getDependencyType())) {
+                    dsToCheck = docstruct.getParent();
                 } else {
-                    if (currentField.getDependencyType().equals("anchor")) {
-                        dsToCheck = docstruct.getParent();
-                    } else {
-                        dsToCheck = docstruct;
-                    }
+                    dsToCheck = docstruct;
                 }
                 boolean metadataFoundAndValid = false;
                 for (Metadata md : dsToCheck.getAllMetadata()) {
@@ -280,11 +275,11 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     List<Person> list = docstruct.getAllPersonsByType(mdt);
                     if (list != null) {
                         for (Person p : list) {
-                            if (!firstPersonOrCorporateWritten && configuredField.getMarcMainTag().equals("100")) {
+                            if (!firstPersonOrCorporateWritten && "100".equals(configuredField.getMarcMainTag())) {
                                 marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
                                 firstAuthor = p;
                                 firstPersonOrCorporateWritten = true;
-                            } else if ((firstAuthor == null || !firstAuthor.equals(p)) && configuredField.getMarcMainTag().equals("700")) {
+                            } else if ((firstAuthor == null || !firstAuthor.equals(p)) && "700".equals(configuredField.getMarcMainTag())) {
                                 marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
                             }
                         }
@@ -293,11 +288,11 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
                     if (list != null) {
                         for (Corporate c : list) {
-                            if (!firstPersonOrCorporateWritten && configuredField.getMarcMainTag().equals("110")) {
+                            if (!firstPersonOrCorporateWritten && "110".equals(configuredField.getMarcMainTag())) {
                                 marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
                                 firstCorp = c;
                                 firstPersonOrCorporateWritten = true;
-                            } else if ((firstCorp == null || !firstCorp.equals(c)) && configuredField.getMarcMainTag().equals("710")) {
+                            } else if ((firstCorp == null || !firstCorp.equals(c)) && "710".equals(configuredField.getMarcMainTag())) {
                                 marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
                             }
                         }
@@ -460,14 +455,12 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     private Element generateMarcField(Element recordElement, Element marcField, MarcMetadataField configuredField) {
         if ("none".equals(configuredField.getReuseMode())) {
             marcField = createMainElement(recordElement, configuredField);
+        } else if (marcField != null && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
+                && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
+                && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")))) {
+            // re-use field
         } else {
-            if (marcField != null && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
-                    && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
-                    && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")))) {
-                // re-use field
-            } else {
-                marcField = createMainElement(recordElement, configuredField);
-            }
+            marcField = createMainElement(recordElement, configuredField);
         }
         return marcField;
     }
