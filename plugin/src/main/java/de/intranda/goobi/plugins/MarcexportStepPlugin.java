@@ -205,53 +205,16 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         for (DocStruct docstruct : docstructList) {
             // 1. get identifier
-            String identifier = null;
-
-            List<Metadata> identifierList = docstruct.getAllIdentifierMetadata();
-            if (identifierList != null) {
-                identifier = identifierList.get(0).getValue();
-            }
+            String identifier = getIdentifierOfDocStruct(docstruct);
 
             // 2. get currentField
-            MarcDocstructField currentField = null;
-
-            for (MarcDocstructField field : docstructFields) {
-                if (field.getDocstructName().equals(docstruct.getType().getName())) {
-                    currentField = field;
-                    break;
-                }
-            }
-
-            // TODO: currentField may still be null
+            MarcDocstructField currentField = getCurrentMarcField(docstruct);
 
             // 3. check if exportable
-            // check if anchor can be exported, check if it is the master record
-            boolean exportable = true;
-            if (StringUtils.isNotBlank(currentField.getDependencyType())) {
-                DocStruct dsToCheck = null;
-                if (docstruct.getType().isAnchor()) {
-                    if ("anchor".equals(currentField.getDependencyType())) {
-                        dsToCheck = docstruct;
-                    } else {
-                        dsToCheck = docstruct.getAllChildren().get(0);
-                    }
-                } else if ("anchor".equals(currentField.getDependencyType())) {
-                    dsToCheck = docstruct.getParent();
-                } else {
-                    dsToCheck = docstruct;
-                }
-                boolean metadataFoundAndValid = false;
-                for (Metadata md : dsToCheck.getAllMetadata()) {
-                    if (md.getType().getName().equals(currentField.getDependencyMetadata())
-                            && md.getValue().equals(currentField.getDependencyValue())) {
-                        metadataFoundAndValid = true;
-                    }
-                }
-                exportable = metadataFoundAndValid;
-            }
+            boolean exportable = isDocStructExportable(docstruct, identifier, currentField);
 
             // 4. use results from 1, 2, 3 to control whether to go further, hence 1 - 4 are just preparation steps
-            if (!exportable || StringUtils.isBlank(identifier) || currentField == null || !currentField.isExportDocstruct()) {
+            if (!exportable) {
                 continue;
             }
 
@@ -326,6 +289,64 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             return PluginReturnValue.ERROR;
         }
         return PluginReturnValue.FINISH;
+    }
+
+    private String getIdentifierOfDocStruct(DocStruct docstruct) {
+        String identifier = null;
+
+        List<Metadata> identifierList = docstruct.getAllIdentifierMetadata();
+        if (identifierList != null) {
+            identifier = identifierList.get(0).getValue();
+        }
+
+        return identifier;
+    }
+
+    private MarcDocstructField getCurrentMarcField(DocStruct docstruct) {
+        MarcDocstructField currentField = null;
+
+        for (MarcDocstructField field : docstructFields) {
+            if (field.getDocstructName().equals(docstruct.getType().getName())) {
+                currentField = field;
+                break;
+            }
+        }
+
+        return currentField;
+    }
+
+    private boolean isDocStructExportable(DocStruct docstruct, String identifier, MarcDocstructField currentField) {
+        return StringUtils.isNotBlank(identifier)
+                && currentField != null
+                && currentField.isExportDocstruct()
+                && isFieldDependencyFulfilled(docstruct, currentField);
+    }
+
+    private boolean isFieldDependencyFulfilled(DocStruct docstruct, MarcDocstructField currentField) {
+        if (StringUtils.isBlank(currentField.getDependencyType())) {
+            return true;
+        }
+        // check if anchor can be exported, check if it is the master record
+        DocStruct dsToCheck = null;
+        if (docstruct.getType().isAnchor()) {
+            if ("anchor".equals(currentField.getDependencyType())) {
+                dsToCheck = docstruct;
+            } else {
+                dsToCheck = docstruct.getAllChildren().get(0);
+            }
+        } else if ("anchor".equals(currentField.getDependencyType())) {
+            dsToCheck = docstruct.getParent();
+        } else {
+            dsToCheck = docstruct;
+        }
+        boolean metadataFoundAndValid = false;
+        for (Metadata md : dsToCheck.getAllMetadata()) {
+            if (md.getType().getName().equals(currentField.getDependencyMetadata())
+                    && md.getValue().equals(currentField.getDependencyValue())) {
+                metadataFoundAndValid = true;
+            }
+        }
+        return metadataFoundAndValid;
     }
 
     private Element writeCorporation(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, Corporate c,
