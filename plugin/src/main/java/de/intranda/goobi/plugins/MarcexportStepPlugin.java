@@ -47,6 +47,7 @@ import org.jdom2.output.XMLOutputter;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.StorageProvider;
+import de.sub.goobi.helper.StorageProviderInterface;
 import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -75,6 +76,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     private static final Namespace marc = Namespace.getNamespace("marc", "http://www.loc.gov/MARC21/slim");
 
     private static final String SUBFIELD_NAME = "subfield";
+
+    private static final StorageProviderInterface storageProvider = StorageProvider.getInstance();
 
     private List<MarcMetadataField> marcFields = new ArrayList<>();
     private List<MarcDocstructField> docstructFields = new ArrayList<>();
@@ -171,37 +174,13 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     public PluginReturnValue run() {
         boolean successful = true; // TODO: reuse successful to control the workflow
         // your logic goes here
-        List<DocStruct> docstructList = new ArrayList<>();
-
         Prefs prefs = step.getProzess().getRegelsatz().getPreferences();
-        Fileformat ff = getFileformat(); // only used to create the docstructList
-        if (ff == null) {
-            // log error message
+
+        List<DocStruct> docstructList = prepareDocStructList();
+        if (docstructList == null) {
+            // error happened
             return PluginReturnValue.ERROR;
         }
-        try {
-            DocStruct docstruct = ff.getDigitalDocument().getLogicalDocStruct();
-            boolean identifierExists = false;
-            for (Metadata md : docstruct.getAllMetadata()) {
-                if (md.getType().isIdentifier()) {
-                    identifierExists = true;
-                }
-            }
-
-            if (!identifierExists) {
-                Helper.setFehlerMeldung("Missing identifier metadata");
-                return PluginReturnValue.ERROR; // ERROR happens only when docstructList can not be successfully initialized, this can be used to simplify the logic
-            }
-
-            docstructList.add(docstruct);
-            if (docstruct.getType().isAnchor()) {
-                docstructList.add(docstruct.getAllChildren().get(0));
-            }
-        } catch (PreferencesException e1) {
-            log.error(e1);
-        }
-
-        // if id is missing
 
         for (DocStruct docstruct : docstructList) {
             // 1. get identifier
@@ -215,32 +194,36 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
             // 4. use results from 1, 2, 3 to control whether to go further, hence 1 - 4 are just preparation steps
             if (!exportable) {
+                log.debug("docstruct is not exportable");
                 continue;
             }
 
-            // 5. start to prepare and write the MARC Document
-            StringBuilder leader = createLeader(currentField);
-
+            // 5. start to prepare the MARC document
             Document marcDoc = new Document();
             Element recordElement = new Element("record", marc);
             marcDoc.setRootElement(recordElement);
 
             Element leaderElement = new Element("leader", marc);
+            StringBuilder leader = createLeader(currentField);
             leaderElement.setText(leader.toString());
             recordElement.addContent(leaderElement);
+
             Element marcField = null;
             Person firstAuthor = null;
             Corporate firstCorp = null;
             boolean firstPersonOrCorporateWritten = false;
             for (MarcMetadataField configuredField : marcFields) {
                 String type = configuredField.getRulesetName();
-                MetadataType mdt = prefs.getMetadataTypeByName(type);
+                MetadataType mdt = prefs.getMetadataTypeByName(type); // if type is null then mdt is also null
+                // condition type
                 MetadataType conditionType = null;
                 if (StringUtils.isNotBlank(configuredField.getConditionField())) {
                     conditionType = prefs.getMetadataTypeByName(configuredField.getConditionField());
                 }
+                // write metadata according to actual types
                 if (type == null) {
                     marcField = writeStaticMetadata(docstruct, recordElement, marcField, configuredField, conditionType);
+
                 } else if (mdt.getIsPerson()) {
                     List<Person> list = docstruct.getAllPersonsByType(mdt);
                     if (list != null) {
@@ -254,6 +237,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                             }
                         }
                     }
+
                 } else if (mdt.isCorporate()) {
                     List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
                     if (list != null) {
@@ -267,17 +251,19 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                             }
                         }
                     }
+
                 } else {
                     marcField = writeMetadata(docstruct, recordElement, marcField, configuredField, mdt, conditionType);
                 }
             }
 
+            // 6. save the MARC file
             XMLOutputter out = new XMLOutputter();
             out.setFormat(Format.getPrettyFormat());
             try {
                 Path outputFolder = Paths.get(exportFolder, "" + step.getProzess().getId());
-                if (!StorageProvider.getInstance().isDirectory(outputFolder)) {
-                    StorageProvider.getInstance().createDirectories(outputFolder);
+                if (!storageProvider.isDirectory(outputFolder)) {
+                    storageProvider.createDirectories(outputFolder);
                 }
                 out.output(marcDoc, new FileOutputStream(exportFolder + step.getProzess().getId() + "/" + identifier + ".xml"));
             } catch (IOException e) {
@@ -289,6 +275,46 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             return PluginReturnValue.ERROR;
         }
         return PluginReturnValue.FINISH;
+    }
+
+    private List<DocStruct> prepareDocStructList() {
+        Fileformat ff = getFileformat(); // only used to create the docstructList
+        if (ff == null) {
+            // log error message
+            return null;
+        }
+
+        try {
+            DocStruct docstruct = ff.getDigitalDocument().getLogicalDocStruct();
+
+            if (!isIdentifierExistsInDocStruct(docstruct)) {
+                Helper.setFehlerMeldung("Missing identifier metadata");
+                return null;
+            }
+
+            List<DocStruct> docstructList = new ArrayList<>();
+
+            docstructList.add(docstruct);
+            if (docstruct.getType().isAnchor()) {
+                docstructList.add(docstruct.getAllChildren().get(0));
+            }
+
+            return docstructList;
+
+        } catch (PreferencesException e1) {
+            log.error(e1);
+            return null;
+        }
+    }
+
+    private boolean isIdentifierExistsInDocStruct(DocStruct docstruct) {
+        for (Metadata md : docstruct.getAllMetadata()) {
+            if (md.getType().isIdentifier()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private String getIdentifierOfDocStruct(DocStruct docstruct) {
@@ -303,16 +329,14 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private MarcDocstructField getCurrentMarcField(DocStruct docstruct) {
-        MarcDocstructField currentField = null;
-
+        String typeName = docstruct.getType().getName();
         for (MarcDocstructField field : docstructFields) {
-            if (field.getDocstructName().equals(docstruct.getType().getName())) {
-                currentField = field;
-                break;
+            if (typeName.equals(field.getDocstructName())) {
+                return field;
             }
         }
 
-        return currentField;
+        return null;
     }
 
     private boolean isDocStructExportable(DocStruct docstruct, String identifier, MarcDocstructField currentField) {
@@ -326,7 +350,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         if (StringUtils.isBlank(currentField.getDependencyType())) {
             return true;
         }
-        // check if anchor can be exported, check if it is the master record
+
         DocStruct dsToCheck = null;
         if (docstruct.getType().isAnchor()) {
             if ("anchor".equals(currentField.getDependencyType())) {
@@ -339,14 +363,18 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         } else {
             dsToCheck = docstruct;
         }
-        boolean metadataFoundAndValid = false;
+
+        String dependencyType = currentField.getDependencyMetadata();
+        String dependencyValue = currentField.getDependencyValue();
         for (Metadata md : dsToCheck.getAllMetadata()) {
-            if (md.getType().getName().equals(currentField.getDependencyMetadata())
-                    && md.getValue().equals(currentField.getDependencyValue())) {
-                metadataFoundAndValid = true;
+            if (md.getType().getName().equals(dependencyType)
+                    && md.getValue().equals(dependencyValue)) {
+                // metadata found and its value matches
+                return true;
             }
         }
-        return metadataFoundAndValid;
+
+        return false;
     }
 
     private Element writeCorporation(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, Corporate c,
