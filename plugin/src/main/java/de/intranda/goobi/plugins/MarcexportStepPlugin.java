@@ -443,6 +443,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 subfield.setText(configuredField.getStaticText());
                 marcField.addContent(subfield);
             }
+            // additional subfield
             if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
                 Element subfield = new Element(SUBFIELD_NAME, marc);
                 subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
@@ -511,17 +512,26 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     private Element generateMarcField(Element recordElement, Element marcField, MarcMetadataField configuredField) {
         if ("none".equals(configuredField.getReuseMode())) {
             marcField = createMainElement(recordElement, configuredField);
-        } else if (marcField != null && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
-                && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
-                && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")))) {
+
+        } else if (isMarcFieldReusable(marcField, configuredField)) {
             // re-use field
+
         } else {
             marcField = createMainElement(recordElement, configuredField);
         }
+
         return marcField;
     }
 
+    private boolean isMarcFieldReusable(Element marcField, MarcMetadataField configuredField) {
+        return marcField != null
+                && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
+                && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
+                && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")));
+    }
+
     private boolean checkConditions(DocStruct docstruct, MarcMetadataField configuredField, MetadataType conditionType) {
+        // filter out a list of Metadata whose elements are all of conditionType
         List<? extends Metadata> conditionList = null;
         if (configuredField.isAnchorMetadata()) {
             if (docstruct.getParent() != null) {
@@ -534,30 +544,29 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         if (conditionList == null || conditionList.isEmpty()) {
+            // nothing found
             return false;
         }
+
+        // look for a match
         boolean match = false;
         for (Metadata md : conditionList) {
-            switch (configuredField.getConditionType()) {
-                case "is":
-                    if (md.getValue().equals(configuredField.getConditionValue())) {
-                        match = true;
-                    }
-                    break;
-                case "not":
-                    if (!md.getValue().equals(configuredField.getConditionValue())) {
-                        match = true;
-                    }
-                    break;
-                case "any":
-                    match = true;
-                    break;
-
-                default:
-                    break;
-            }
+            match = match || isMetadataAMatch(md, configuredField);
         }
         return match;
+    }
+
+    private boolean isMetadataAMatch(Metadata md, MarcMetadataField configuredField) {
+        switch (configuredField.getConditionType()) {
+            case "is":
+                return md.getValue().equals(configuredField.getConditionValue());
+            case "not":
+                return !md.getValue().equals(configuredField.getConditionValue());
+            case "any":
+                return true;
+            default:
+                return false;
+        }
     }
 
     private int getSortingTitleNumber(String value) {
