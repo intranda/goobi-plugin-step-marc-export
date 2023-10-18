@@ -169,12 +169,12 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public PluginReturnValue run() {
-        boolean successful = true;
+        boolean successful = true; // TODO: reuse successful to control the workflow
         // your logic goes here
         List<DocStruct> docstructList = new ArrayList<>();
 
         Prefs prefs = step.getProzess().getRegelsatz().getPreferences();
-        Fileformat ff = getFileformat();
+        Fileformat ff = getFileformat(); // only used to create the docstructList
         if (ff == null) {
             // log error message
             return PluginReturnValue.ERROR;
@@ -190,7 +190,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
             if (!identifierExists) {
                 Helper.setFehlerMeldung("Missing identifier metadata");
-                return PluginReturnValue.ERROR;
+                return PluginReturnValue.ERROR; // ERROR happens only when docstructList can not be successfully initialized, this can be used to simplify the logic
             }
 
             docstructList.add(docstruct);
@@ -204,6 +204,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         // if id is missing
 
         for (DocStruct docstruct : docstructList) {
+            // 1. get identifier
             String identifier = null;
 
             List<Metadata> identifierList = docstruct.getAllIdentifierMetadata();
@@ -211,6 +212,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 identifier = identifierList.get(0).getValue();
             }
 
+            // 2. get currentField
             MarcDocstructField currentField = null;
 
             for (MarcDocstructField field : docstructFields) {
@@ -220,6 +222,9 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 }
             }
 
+            // TODO: currentField may still be null
+
+            // 3. check if exportable
             // check if anchor can be exported, check if it is the master record
             boolean exportable = true;
             if (StringUtils.isNotBlank(currentField.getDependencyType())) {
@@ -245,10 +250,12 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 exportable = metadataFoundAndValid;
             }
 
+            // 4. use results from 1, 2, 3 to control whether to go further, hence 1 - 4 are just preparation steps
             if (!exportable || StringUtils.isBlank(identifier) || currentField == null || !currentField.isExportDocstruct()) {
                 continue;
             }
 
+            // 5. start to prepare and write the MARC Document
             StringBuilder leader = createLeader(currentField);
 
             Document marcDoc = new Document();
