@@ -222,18 +222,22 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 }
                 // write metadata according to actual types
                 if (type == null) {
-                    marcField = writeStaticMetadata(docstruct, recordElement, marcField, configuredField, conditionType);
+                    // @rulesetName is not configured
+                    //                    marcField = writeStaticMetadata(docstruct, recordElement, marcField, configuredField, conditionType);
+                    marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, null, conditionType);
 
                 } else if (mdt.getIsPerson()) {
                     List<Person> list = docstruct.getAllPersonsByType(mdt);
                     if (list != null) {
                         for (Person p : list) {
                             if (!firstPersonOrCorporateWritten && "100".equals(configuredField.getMarcMainTag())) {
-                                marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
+                                //                                marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
+                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, p, conditionType);
                                 firstAuthor = p;
                                 firstPersonOrCorporateWritten = true;
                             } else if ((firstAuthor == null || !firstAuthor.equals(p)) && "700".equals(configuredField.getMarcMainTag())) {
-                                marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
+                                //                                marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
+                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, p, conditionType);
                             }
                         }
                     }
@@ -243,17 +247,25 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     if (list != null) {
                         for (Corporate c : list) {
                             if (!firstPersonOrCorporateWritten && "110".equals(configuredField.getMarcMainTag())) {
-                                marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
+                                //                                marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
+                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, c, conditionType);
                                 firstCorp = c;
                                 firstPersonOrCorporateWritten = true;
                             } else if ((firstCorp == null || !firstCorp.equals(c)) && "710".equals(configuredField.getMarcMainTag())) {
-                                marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
+                                //                                marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
+                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, c, conditionType);
                             }
                         }
                     }
 
                 } else {
-                    marcField = writeMetadata(docstruct, recordElement, marcField, configuredField, mdt, conditionType);
+                    //                    marcField = writeMetadata(docstruct, recordElement, marcField, configuredField, mdt, conditionType);
+                    List<? extends Metadata> list = getMetadataListGeneral(docstruct, marcField, configuredField, mdt, conditionType);
+                    if (list != null) {
+                        for (Metadata md : list) {
+                            marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, md, conditionType);
+                        }
+                    }
                 }
             }
 
@@ -377,6 +389,76 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         return false;
     }
 
+    private Element writeMetadataGeneral(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField,
+            Metadata md, MetadataType conditionType) {
+        // configured condition, check if they match
+        if (conditionType != null) {
+            boolean match = checkConditions(docstruct, configuredField, conditionType);
+            if (!match) {
+                return marcField;
+            }
+        }
+
+        marcField = generateMarcField(recordElement, marcField, configuredField);
+        String marcFieldText = md == null ? configuredField.getStaticText() : getMarcFieldText(md);
+        // The controlfield-check was not there for Person and Corporation, but I think it should be. - Zehong 
+        if ("controlfield".equals(configuredField.getFieldType())) {
+            marcField.setText(marcFieldText);
+        } else {
+            Element subfield = new Element(SUBFIELD_NAME, marc);
+            subfield.setAttribute("code", configuredField.getMarcSubTag());
+            subfield.setText(marcFieldText);
+            marcField.addContent(subfield);
+
+            // The following X-check block was not there for Person and Corporation, but I think it should be. - Zehong
+            if ("X".equals(marcField.getAttributeValue("ind2"))) {
+                // sorting title
+                int ind2Value = getSortingTitleNumber(marcFieldText);
+                marcField.setAttribute("ind2", "" + ind2Value);
+            }
+        }
+
+        // additional subfield
+        if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
+            Element subfield = new Element(SUBFIELD_NAME, marc);
+            subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
+            subfield.setText(configuredField.getAdditionalSubFieldValue());
+            marcField.addContent(subfield);
+        }
+
+        return marcField;
+    }
+
+    private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, Element marcField, MarcMetadataField configuredField,
+            MetadataType mdt, MetadataType conditionType) {
+        List<? extends Metadata> list = null;
+        if (configuredField.isAnchorMetadata()) {
+            if (docstruct.getParent() != null) {
+                list = docstruct.getParent().getAllMetadataByType(mdt);
+            } else {
+                return null;
+            }
+        } else {
+            list = docstruct.getAllMetadataByType(mdt);
+        }
+
+        return list;
+    }
+
+    private String getMarcFieldText(Metadata md) {
+        if (md instanceof Corporate) {
+            return ((Corporate) md).getMainName();
+        }
+
+        if (md instanceof Person) {
+            Person p = (Person) md;
+            return p.getLastname() + ", " + p.getFirstname();
+        }
+
+        // normal metadata
+        return md.getValue();
+    }
+
     private Element writeCorporation(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, Corporate c,
             MetadataType conditionType) {
         // configured condition, check if they match
@@ -426,6 +508,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private Element writeStaticMetadata(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField,
             MetadataType conditionType) {
+        // use value of @text if it is configured
         if (StringUtils.isNotBlank(configuredField.getStaticText())) {
             // configured condition, check if they match
             if (conditionType != null) {
@@ -458,7 +541,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private Element writeMetadata(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, MetadataType mdt,
             MetadataType conditionType) {
-
+        // 1. get a list of metadata that shall be written to the doc
         List<? extends Metadata> list = null;
         if (configuredField.isAnchorMetadata()) {
             if (docstruct.getParent() != null) {
@@ -478,11 +561,16 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             }
         }
 
+        // 2. generate a MARC field if there are metadata entries to write
         if (list != null && !list.isEmpty()) {
             // always create a new element
             marcField = generateMarcField(recordElement, marcField, configuredField);
+            // Since the call of generateMarcField only occurs when the list is not empty, we can move it into the loop. 
+            // That will not change the result, since by definition of the method generateMarcField, we will always reuse the current field if it is reusable, 
+            // and otherwise we will always get a new one just as expected. Therefore the new method writeMetadataGeneral can be used to simplify the logic here. - Zehong
         }
 
+        // 3. write every metadata entry into the field
         for (Metadata metadata : list) {
             if ("controlfield".equals(configuredField.getFieldType())) {
                 marcField.setText(metadata.getValue());
