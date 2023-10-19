@@ -27,7 +27,6 @@ import java.util.ArrayList;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -527,32 +526,32 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private String getPatternTargetFromText(String text, String template, String target) {
-        Map<String, String> partsMap = new HashMap<>();
+        String textCopy = text;
+
         Matcher matcher = SEPARATOR_PATTERN.matcher(template);
-        List<String> separators = new ArrayList<>();
         while (matcher.find()) {
             String separator = matcher.group();
-            separators.add(separator);
-        }
-
-        for (String separator : separators) {
             int splitIndexTemplate = template.indexOf(separator);
-            int splitIndexText = text.indexOf(separator);
+            int splitIndexText = textCopy.indexOf(separator);
+            if (splitIndexText < 0) {
+                // pattern template is not correctly configured
+                log.error("Unknown separator " + separator + " in the text. @patternTemplate may be incorrect.");
+                return text;
+            }
+
             String key = template.substring(0, splitIndexTemplate);
-            String value = text.substring(0, splitIndexText);
+            if (target.equals(key)) {
+                // match found
+                return textCopy.substring(0, splitIndexText);
+            }
+
+            // not a match yet, update template and textCopy
             template = template.substring(splitIndexTemplate + 1);
-            text = text.substring(splitIndexText + 1);
-            partsMap.put(key, value);
-        }
-        // last pair 
-        partsMap.put(template, text);
-
-        for (Map.Entry<String, String> entry : partsMap.entrySet()) {
-            log.debug(entry.getKey() + " -> " + entry.getValue());
+            textCopy = textCopy.substring(splitIndexText + 1);
         }
 
-        // TODO: check existence of target in the map
-        return partsMap.get(target);
+        // return the original text if no match found
+        return target.equals(template) ? textCopy : text;
     }
 
     private boolean checkConditions(DocStruct docstruct, MarcMetadataField configuredField, MetadataType conditionType) {
