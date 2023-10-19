@@ -110,7 +110,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String additionalSubFieldValue = hc.getString("@additionalSubFieldValue");
             MarcMetadataField mmf = new MarcMetadataField(type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName,
                     additionalSubFieldCode, additionalSubFieldValue, hc.getBoolean("@anchorMetadata", false), hc.getString("@conditionField", null),
-                    hc.getString("@conditionValue", null), hc.getString("@conditionType", "is"), hc.getString("@text", ""));
+                    hc.getString("@conditionValue", null), hc.getString("@conditionType", "is"), hc.getString("@text", ""),
+                    hc.getString("@wrapperLeft", ""), hc.getString("@wrapperRight", ""));
             marcFields.add(mmf);
         }
 
@@ -246,13 +247,9 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
                             marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, md, conditionType);
 
-                            if (writeCode == 100) {
-                                // first Person found
-                                firstMetadata = (Person) md;
-                                firstPersonOrCorporateWritten = true;
-                            } else if (writeCode == 110) {
-                                // first Corporate found
-                                firstMetadata = (Corporate) md;
+                            if (writeCode == 100 || writeCode == 110) {
+                                // first Person or first Corporate found
+                                firstMetadata = md;
                                 firstPersonOrCorporateWritten = true;
                             }
                         }
@@ -418,7 +415,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         marcField = generateMarcField(recordElement, marcField, configuredField);
-        String marcFieldText = md == null ? configuredField.getStaticText() : getMarcFieldText(md);
+        String marcFieldText = getWrappedMarcFieldText(configuredField, md);
         // The controlfield-check was not there for Person and Corporation, but I think it should be. - Zehong 
         if ("controlfield".equals(configuredField.getFieldType())) {
             marcField.setText(marcFieldText);
@@ -504,6 +501,11 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
                 && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
                 && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")));
+    }
+
+    private String getWrappedMarcFieldText(MarcMetadataField configuredField, Metadata md) {
+        String marcFieldText = md == null ? configuredField.getStaticText() : getMarcFieldText(md);
+        return configuredField.getWrapperLeft() + marcFieldText + configuredField.getWrapperRight();
     }
 
     private boolean checkConditions(DocStruct docstruct, MarcMetadataField configuredField, MetadataType conditionType) {

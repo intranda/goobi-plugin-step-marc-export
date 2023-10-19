@@ -33,4 +33,7 @@ public class MarcMetadataField {
     private String conditionType; // is, not, any
 
     private String staticText;
+
+    private String wrapperLeft;
+    private String wrapperRight;
 }
