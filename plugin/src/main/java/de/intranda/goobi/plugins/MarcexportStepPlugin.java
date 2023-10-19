@@ -209,8 +209,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             recordElement.addContent(leaderElement);
 
             Element marcField = null;
-            Person firstAuthor = null;
-            Corporate firstCorp = null;
+            Metadata firstMetadata = null;
+            // there should be ONLY ONE main entry, either Person or Corporate, but NOT both
             boolean firstPersonOrCorporateWritten = false;
             for (MarcMetadataField configuredField : marcFields) {
                 String type = configuredField.getRulesetName();
@@ -220,44 +220,41 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 if (StringUtils.isNotBlank(configuredField.getConditionField())) {
                     conditionType = prefs.getMetadataTypeByName(configuredField.getConditionField());
                 }
+
+                /*
+                 * REMARKS ON MARC:
+                 *      1. Fields beginning with a 1 are referred to as main entry fields, and there should be ONLY ONE of them in each MARC record.
+                 *      1.1. Person - 100
+                 *      1.2. Corporate - 110
+                 *      
+                 *      2. Fields beginning with a 7 are used to provide additional access to the manifestation being cataloged. 
+                 *      2.1. Person - 700
+                 *      2.2. Corporate - 710
+                 */
                 // write metadata according to actual types
                 if (type == null) {
-                    // @rulesetName is not configured
                     marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, null, conditionType);
-
-                } else if (mdt.getIsPerson()) {
-                    List<Person> list = docstruct.getAllPersonsByType(mdt);
-                    if (list != null) {
-                        for (Person p : list) {
-                            if (!firstPersonOrCorporateWritten && "100".equals(configuredField.getMarcMainTag())) {
-                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, p, conditionType);
-                                firstAuthor = p;
-                                firstPersonOrCorporateWritten = true;
-                            } else if ((firstAuthor == null || !firstAuthor.equals(p)) && "700".equals(configuredField.getMarcMainTag())) {
-                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, p, conditionType);
-                            }
-                        }
-                    }
-
-                } else if (mdt.isCorporate()) {
-                    List<Corporate> list = docstruct.getAllCorporatesByType(mdt);
-                    if (list != null) {
-                        for (Corporate c : list) {
-                            if (!firstPersonOrCorporateWritten && "110".equals(configuredField.getMarcMainTag())) {
-                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, c, conditionType);
-                                firstCorp = c;
-                                firstPersonOrCorporateWritten = true;
-                            } else if ((firstCorp == null || !firstCorp.equals(c)) && "710".equals(configuredField.getMarcMainTag())) {
-                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, c, conditionType);
-                            }
-                        }
-                    }
-
                 } else {
                     List<? extends Metadata> list = getMetadataListGeneral(docstruct, configuredField, mdt);
                     if (list != null) {
                         for (Metadata md : list) {
+                            // check if we should call writeMetadataGeneral, which depends on mdt
+                            int writeCode = getMetadataWriteCode(configuredField, mdt, firstMetadata, md, firstPersonOrCorporateWritten);
+                            if (writeCode < 0) {
+                                continue;
+                            }
+
                             marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, md, conditionType);
+
+                            if (writeCode == 100) {
+                                // first Person found
+                                firstMetadata = (Person) md;
+                                firstPersonOrCorporateWritten = true;
+                            } else if (writeCode == 110) {
+                                // first Corporate found
+                                firstMetadata = (Corporate) md;
+                                firstPersonOrCorporateWritten = true;
+                            }
                         }
                     }
                 }
@@ -383,6 +380,33 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         return false;
     }
 
+    private int getMetadataWriteCode(MarcMetadataField configuredField, MetadataType mdt, Metadata firstMetadata, Metadata currentMetadata,
+            boolean firstPersonOrCorporateWritten) {
+        if (!mdt.getIsPerson() && !mdt.isCorporate()) {
+            // 0 means this is a non-person non-corporate Metadata, and hence can be written
+            return 0;
+        }
+
+        String marcMainTag = configuredField.getMarcMainTag();
+
+        if (firstPersonOrCorporateWritten) {
+            boolean sameFirst = firstMetadata != null;
+            if (mdt.getIsPerson()) {
+                sameFirst = sameFirst && firstMetadata instanceof Person && ((Person) firstMetadata).equals((Person) currentMetadata);
+            } else if (mdt.isCorporate()) {
+                sameFirst = sameFirst && firstMetadata instanceof Corporate && ((Corporate) firstMetadata).equals((Corporate) currentMetadata);
+            }
+            // -1 means that this Metadata should not be written
+            // 710 means that this is an additional Corporate and can be written
+            // 700 means that this is an additional Person and can be written
+            return sameFirst ? -1 : "710".equals(marcMainTag) ? 710 : "700".equals(marcMainTag) ? 700 : -1;
+        }
+
+        // 110 means that this is the first Corporate and can be written
+        // 100 means that this is the first Person and can be written
+        return "110".equals(marcMainTag) ? 110 : "100".equals(marcMainTag) ? 100 : -1;
+    }
+
     private Element writeMetadataGeneral(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField,
             Metadata md, MetadataType conditionType) {
         // configured condition, check if they match
@@ -424,12 +448,22 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, MarcMetadataField configuredField, MetadataType mdt) {
+        // Person
+        if (mdt.getIsPerson()) {
+            return docstruct.getAllPersonsByType(mdt);
+        }
 
+        // Corporate
+        if (mdt.isCorporate()) {
+            return docstruct.getAllCorporatesByType(mdt);
+        }
+
+        // other Metadata, which is not anchor
         if (!configuredField.isAnchorMetadata()) {
             return docstruct.getAllMetadataByType(mdt);
         }
 
-        // is anchor metadata
+        // anchor metadata
         if (docstruct.getParent() != null) {
             return docstruct.getParent().getAllMetadataByType(mdt);
         }
