@@ -36,4 +36,7 @@ public class MarcMetadataField {
 
     private String wrapperLeft;
     private String wrapperRight;
+
+    private String patternTemplate;
+    private String patternTarget;
 }

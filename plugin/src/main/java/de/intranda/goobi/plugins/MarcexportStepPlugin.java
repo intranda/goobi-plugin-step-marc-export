@@ -27,6 +27,9 @@ import java.util.ArrayList;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
@@ -79,6 +82,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private static final StorageProviderInterface storageProvider = StorageProvider.getInstance();
 
+    private static final Pattern SEPARATOR_PATTERN = Pattern.compile("[^A-Za-z0-9]");
+
     private List<MarcMetadataField> marcFields = new ArrayList<>();
     private List<MarcDocstructField> docstructFields = new ArrayList<>();
 
@@ -108,10 +113,18 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String rulesetName = hc.getString("@rulesetName");
             String additionalSubFieldCode = hc.getString("@additionalSubFieldCode");
             String additionalSubFieldValue = hc.getString("@additionalSubFieldValue");
-            MarcMetadataField mmf = new MarcMetadataField(type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName,
-                    additionalSubFieldCode, additionalSubFieldValue, hc.getBoolean("@anchorMetadata", false), hc.getString("@conditionField", null),
-                    hc.getString("@conditionValue", null), hc.getString("@conditionType", "is"), hc.getString("@text", ""),
-                    hc.getString("@wrapperLeft", ""), hc.getString("@wrapperRight", ""));
+            boolean anchorMetadata = hc.getBoolean("@anchorMetadata", false);
+            String conditionField = hc.getString("@conditionField", null);
+            String conditionValue = hc.getString("@conditionValue", null);
+            String conditionType = hc.getString("@conditionType", "is");
+            String text = hc.getString("@text", "");
+            String wrapperLeft = hc.getString("@wrapperLeft", "");
+            String wrapperRight = hc.getString("@wrapperRight", "");
+            String patternTemplate = hc.getString("@patternTemplate", "");
+            String patternTarget = hc.getString("@patternTarget", "");
+            MarcMetadataField mmf = new MarcMetadataField(type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName, additionalSubFieldCode,
+                    additionalSubFieldValue, anchorMetadata, conditionField, conditionValue, conditionType, text, wrapperLeft, wrapperRight,
+                    patternTemplate, patternTarget);
             marcFields.add(mmf);
         }
 
@@ -505,7 +518,41 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private String getWrappedMarcFieldText(MarcMetadataField configuredField, Metadata md) {
         String marcFieldText = md == null ? configuredField.getStaticText() : getMarcFieldText(md);
+        // check pattern
+        if (StringUtils.isNoneBlank(configuredField.getPatternTemplate(), configuredField.getPatternTarget())) {
+            marcFieldText = getPatternTargetFromText(marcFieldText, configuredField.getPatternTemplate(), configuredField.getPatternTarget());
+        }
+
         return configuredField.getWrapperLeft() + marcFieldText + configuredField.getWrapperRight();
+    }
+
+    private String getPatternTargetFromText(String text, String template, String target) {
+        Map<String, String> partsMap = new HashMap<>();
+        Matcher matcher = SEPARATOR_PATTERN.matcher(template);
+        List<String> separators = new ArrayList<>();
+        while (matcher.find()) {
+            String separator = matcher.group();
+            separators.add(separator);
+        }
+
+        for (String separator : separators) {
+            int splitIndexTemplate = template.indexOf(separator);
+            int splitIndexText = text.indexOf(separator);
+            String key = template.substring(0, splitIndexTemplate);
+            String value = text.substring(0, splitIndexText);
+            template = template.substring(splitIndexTemplate + 1);
+            text = text.substring(splitIndexText + 1);
+            partsMap.put(key, value);
+        }
+        // last pair 
+        partsMap.put(template, text);
+
+        for (Map.Entry<String, String> entry : partsMap.entrySet()) {
+            log.debug(entry.getKey() + " -> " + entry.getValue());
+        }
+
+        // TODO: check existence of target in the map
+        return partsMap.get(target);
     }
 
     private boolean checkConditions(DocStruct docstruct, MarcMetadataField configuredField, MetadataType conditionType) {
