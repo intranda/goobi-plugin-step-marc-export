@@ -254,7 +254,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     }
 
                 } else {
-                    List<? extends Metadata> list = getMetadataListGeneral(docstruct, marcField, configuredField, mdt, conditionType);
+                    List<? extends Metadata> list = getMetadataListGeneral(docstruct, configuredField, mdt);
                     if (list != null) {
                         for (Metadata md : list) {
                             marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, md, conditionType);
@@ -423,20 +423,18 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         return marcField;
     }
 
-    private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, Element marcField, MarcMetadataField configuredField,
-            MetadataType mdt, MetadataType conditionType) {
-        List<? extends Metadata> list = null;
-        if (configuredField.isAnchorMetadata()) {
-            if (docstruct.getParent() != null) {
-                list = docstruct.getParent().getAllMetadataByType(mdt);
-            } else {
-                return null;
-            }
-        } else {
-            list = docstruct.getAllMetadataByType(mdt);
+    private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, MarcMetadataField configuredField, MetadataType mdt) {
+
+        if (!configuredField.isAnchorMetadata()) {
+            return docstruct.getAllMetadataByType(mdt);
         }
 
-        return list;
+        // is anchor metadata
+        if (docstruct.getParent() != null) {
+            return docstruct.getParent().getAllMetadataByType(mdt);
+        }
+
+        return null;
     }
 
     private String getMarcFieldText(Metadata md) {
