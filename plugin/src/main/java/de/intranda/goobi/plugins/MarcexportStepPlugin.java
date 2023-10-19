@@ -223,7 +223,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 // write metadata according to actual types
                 if (type == null) {
                     // @rulesetName is not configured
-                    //                    marcField = writeStaticMetadata(docstruct, recordElement, marcField, configuredField, conditionType);
                     marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, null, conditionType);
 
                 } else if (mdt.getIsPerson()) {
@@ -231,12 +230,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     if (list != null) {
                         for (Person p : list) {
                             if (!firstPersonOrCorporateWritten && "100".equals(configuredField.getMarcMainTag())) {
-                                //                                marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
                                 marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, p, conditionType);
                                 firstAuthor = p;
                                 firstPersonOrCorporateWritten = true;
                             } else if ((firstAuthor == null || !firstAuthor.equals(p)) && "700".equals(configuredField.getMarcMainTag())) {
-                                //                                marcField = writePerson(docstruct, recordElement, marcField, configuredField, p, conditionType);
                                 marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, p, conditionType);
                             }
                         }
@@ -247,19 +244,16 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     if (list != null) {
                         for (Corporate c : list) {
                             if (!firstPersonOrCorporateWritten && "110".equals(configuredField.getMarcMainTag())) {
-                                //                                marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
                                 marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, c, conditionType);
                                 firstCorp = c;
                                 firstPersonOrCorporateWritten = true;
                             } else if ((firstCorp == null || !firstCorp.equals(c)) && "710".equals(configuredField.getMarcMainTag())) {
-                                //                                marcField = writeCorporation(docstruct, recordElement, marcField, configuredField, c, conditionType);
                                 marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, c, conditionType);
                             }
                         }
                     }
 
                 } else {
-                    //                    marcField = writeMetadata(docstruct, recordElement, marcField, configuredField, mdt, conditionType);
                     List<? extends Metadata> list = getMetadataListGeneral(docstruct, marcField, configuredField, mdt, conditionType);
                     if (list != null) {
                         for (Metadata md : list) {
@@ -457,144 +451,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         // normal metadata
         return md.getValue();
-    }
-
-    private Element writeCorporation(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, Corporate c,
-            MetadataType conditionType) {
-        // configured condition, check if they match
-        if (conditionType != null) {
-            boolean match = checkConditions(docstruct, configuredField, conditionType);
-            if (!match) {
-                return marcField;
-            }
-        }
-        marcField = generateMarcField(recordElement, marcField, configuredField);
-        Element subfield = new Element(SUBFIELD_NAME, marc);
-        subfield.setAttribute("code", configuredField.getMarcSubTag());
-        subfield.setText(c.getMainName());
-        marcField.addContent(subfield);
-        if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
-            Element secondSubfield = new Element(SUBFIELD_NAME, marc);
-            secondSubfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
-            secondSubfield.setText(configuredField.getAdditionalSubFieldValue());
-            marcField.addContent(secondSubfield);
-        }
-        return marcField;
-
-    }
-
-    private Element writePerson(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, Person p,
-            MetadataType conditionType) {
-        // configured condition, check if they match
-        if (conditionType != null) {
-            boolean match = checkConditions(docstruct, configuredField, conditionType);
-            if (!match) {
-                return marcField;
-            }
-        }
-        marcField = generateMarcField(recordElement, marcField, configuredField);
-        Element subfield = new Element(SUBFIELD_NAME, marc);
-        subfield.setAttribute("code", configuredField.getMarcSubTag());
-        subfield.setText(p.getLastname() + ", " + p.getFirstname());
-        marcField.addContent(subfield);
-        if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
-            Element secondSubfield = new Element(SUBFIELD_NAME, marc);
-            secondSubfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
-            secondSubfield.setText(configuredField.getAdditionalSubFieldValue());
-            marcField.addContent(secondSubfield);
-        }
-        return marcField;
-    }
-
-    private Element writeStaticMetadata(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField,
-            MetadataType conditionType) {
-        // use value of @text if it is configured
-        if (StringUtils.isNotBlank(configuredField.getStaticText())) {
-            // configured condition, check if they match
-            if (conditionType != null) {
-                boolean match = checkConditions(docstruct, configuredField, conditionType);
-                if (!match) {
-                    return marcField;
-                }
-            }
-            marcField = generateMarcField(recordElement, marcField, configuredField);
-            if ("controlfield".equals(configuredField.getFieldType())) {
-                marcField.setText(configuredField.getStaticText());
-            } else {
-                Element subfield = new Element(SUBFIELD_NAME, marc);
-                subfield.setAttribute("code", configuredField.getMarcSubTag());
-                subfield.setText(configuredField.getStaticText());
-                marcField.addContent(subfield);
-            }
-            // additional subfield
-            if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
-                Element subfield = new Element(SUBFIELD_NAME, marc);
-                subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
-                subfield.setText(configuredField.getAdditionalSubFieldValue());
-                marcField.addContent(subfield);
-            }
-
-        }
-
-        return marcField;
-    }
-
-    private Element writeMetadata(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField, MetadataType mdt,
-            MetadataType conditionType) {
-        // 1. get a list of metadata that shall be written to the doc
-        List<? extends Metadata> list = null;
-        if (configuredField.isAnchorMetadata()) {
-            if (docstruct.getParent() != null) {
-                list = docstruct.getParent().getAllMetadataByType(mdt);
-            } else {
-                return marcField;
-            }
-        } else {
-            list = docstruct.getAllMetadataByType(mdt);
-        }
-
-        // configured condition, check if they match
-        if (conditionType != null) {
-            boolean match = checkConditions(docstruct, configuredField, conditionType);
-            if (!match) {
-                return marcField;
-            }
-        }
-
-        // 2. generate a MARC field if there are metadata entries to write
-        if (list != null && !list.isEmpty()) {
-            // always create a new element
-            marcField = generateMarcField(recordElement, marcField, configuredField);
-            // Since the call of generateMarcField only occurs when the list is not empty, we can move it into the loop. 
-            // That will not change the result, since by definition of the method generateMarcField, we will always reuse the current field if it is reusable, 
-            // and otherwise we will always get a new one just as expected. Therefore the new method writeMetadataGeneral can be used to simplify the logic here. - Zehong
-        }
-
-        // 3. write every metadata entry into the field
-        for (Metadata metadata : list) {
-            if ("controlfield".equals(configuredField.getFieldType())) {
-                marcField.setText(metadata.getValue());
-            } else {
-                Element subfield = new Element(SUBFIELD_NAME, marc);
-                subfield.setAttribute("code", configuredField.getMarcSubTag());
-                subfield.setText(metadata.getValue());
-                marcField.addContent(subfield);
-
-                if ("X".equals(marcField.getAttributeValue("ind2"))) {
-                    // sorting title
-                    int ind2Value = getSortingTitleNumber(metadata.getValue());
-                    marcField.setAttribute("ind2", "" + ind2Value);
-                }
-
-            }
-            if (StringUtils.isNotBlank(configuredField.getAdditionalSubFieldCode())) {
-                Element subfield = new Element(SUBFIELD_NAME, marc);
-                subfield.setAttribute("code", configuredField.getAdditionalSubFieldCode());
-                subfield.setText(configuredField.getAdditionalSubFieldValue());
-                marcField.addContent(subfield);
-            }
-        }
-        return marcField;
     }
 
     private Element generateMarcField(Element recordElement, Element marcField, MarcMetadataField configuredField) {
