@@ -117,8 +117,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String conditionValue = hc.getString("@conditionValue", null);
             String conditionType = hc.getString("@conditionType", "is");
             String text = hc.getString("@text", "");
-            String wrapperLeft = hc.getString("@wrapperLeft", "");
-            String wrapperRight = hc.getString("@wrapperRight", "");
+            String wrapperLeft = hc.getString("@wrapperLeft", null);
+            String wrapperRight = hc.getString("@wrapperRight", null);
             String patternTemplate = hc.getString("@patternTemplate", "");
             String patternTarget = hc.getString("@patternTarget", "");
             String mergeSeparator = hc.getString("@mergeSeparator", null);
@@ -482,16 +482,18 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             return newText;
         }
 
-        StringBuilder textBuilder = new StringBuilder(oldText);
-        textBuilder.append(" ");
-        
-        if (StringUtils.isNotEmpty(separator)) {
-            textBuilder.append(separator).append(" ");
-        }
+        return oldText + (StringUtils.isBlank(separator) ? " " : separator) + newText;
 
-        textBuilder.append(newText);
-
-        return textBuilder.toString();
+        //        StringBuilder textBuilder = new StringBuilder(oldText);
+        //        textBuilder.append(" ");
+        //        
+        //        if (StringUtils.isNotEmpty(separator)) {
+        //            textBuilder.append(separator).append(" ");
+        //        }
+        //
+        //        textBuilder.append(newText);
+        //
+        //        return textBuilder.toString();
     }
 
     private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, MarcMetadataField configuredField, MetadataType mdt) {
@@ -570,7 +572,12 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             marcFieldText = getPatternTargetFromText(marcFieldText, configuredField.getPatternTemplate(), configuredField.getPatternTarget());
         }
 
-        return configuredField.getWrapperLeft() + marcFieldText + configuredField.getWrapperRight();
+        String left = configuredField.getWrapperLeft();
+        String right = configuredField.getWrapperRight();
+        left = left == null ? "" : StringUtils.isEmpty(left) ? " " : left;
+        right = right == null ? "" : StringUtils.isEmpty(right) ? " " : right;
+
+        return left + marcFieldText + right;
     }
 
     private String getPatternTargetFromText(String text, String template, String target) {
