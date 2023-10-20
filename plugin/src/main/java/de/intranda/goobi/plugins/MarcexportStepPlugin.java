@@ -121,9 +121,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String wrapperRight = hc.getString("@wrapperRight", "");
             String patternTemplate = hc.getString("@patternTemplate", "");
             String patternTarget = hc.getString("@patternTarget", "");
+            String mergeSeparator = hc.getString("@mergeSeparator", "");
             MarcMetadataField mmf = new MarcMetadataField(type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName, additionalSubFieldCode,
                     additionalSubFieldValue, anchorMetadata, conditionField, conditionValue, conditionType, text, wrapperLeft, wrapperRight,
-                    patternTemplate, patternTarget);
+                    patternTemplate, patternTarget, mergeSeparator);
             marcFields.add(mmf);
         }
 
@@ -222,7 +223,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             recordElement.addContent(leaderElement);
 
             Element marcField = null;
-            Metadata firstMetadata = null;
+            Metadata firstPersonOrCorporate = null;
             // there should be ONLY ONE main entry, either Person or Corporate, but NOT both
             boolean firstPersonOrCorporateWritten = false;
             for (MarcMetadataField configuredField : marcFields) {
@@ -246,13 +247,14 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                  */
                 // write metadata according to actual types
                 if (type == null) {
+                    // static text, not metadata
                     marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, null, conditionType);
                 } else {
                     List<? extends Metadata> list = getMetadataListGeneral(docstruct, configuredField, mdt);
                     if (list != null) {
                         for (Metadata md : list) {
                             // check if we should call writeMetadataGeneral, which depends on mdt
-                            int writeCode = getMetadataWriteCode(configuredField, mdt, firstMetadata, md, firstPersonOrCorporateWritten);
+                            int writeCode = getMetadataWriteCode(configuredField, mdt, firstPersonOrCorporate, md, firstPersonOrCorporateWritten);
                             if (writeCode < 0) {
                                 continue;
                             }
@@ -261,7 +263,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
                             if (writeCode == 100 || writeCode == 110) {
                                 // first Person or first Corporate found
-                                firstMetadata = md;
+                                firstPersonOrCorporate = md;
                                 firstPersonOrCorporateWritten = true;
                             }
                         }
@@ -428,10 +430,25 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         marcField = generateMarcField(recordElement, marcField, configuredField);
         String marcFieldText = getWrappedMarcFieldText(configuredField, md);
+        Element lastChild;
         // The controlfield-check was not there for Person and Corporation, but I think it should be. - Zehong 
         if ("controlfield".equals(configuredField.getFieldType())) {
             marcField.setText(marcFieldText);
-        } else {
+            
+        } else if (StringUtils.isNotEmpty(configuredField.getMergeSeparator())
+                && (lastChild = getLastChildOfField(marcField)) != null) {
+
+            String mergeSeparator = configuredField.getMergeSeparator();
+            // merge new text with lastChild's old text
+            StringBuilder textBuilder = new StringBuilder(lastChild.getText());
+            textBuilder.append(" ")
+                    .append(mergeSeparator)
+                    .append(" ")
+                    .append(marcFieldText);
+
+            lastChild.setText(textBuilder.toString());
+
+        } else { // no need to merge or there is still no subfield available yet
             Element subfield = new Element(SUBFIELD_NAME, marc);
             subfield.setAttribute("code", configuredField.getMarcSubTag());
             subfield.setText(marcFieldText);
@@ -454,6 +471,11 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         return marcField;
+    }
+
+    private Element getLastChildOfField(Element marcField) {
+        List<Element> elements = marcField.getChildren();
+        return elements.isEmpty() ? null : elements.get(elements.size() - 1);
     }
 
     private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, MarcMetadataField configuredField, MetadataType mdt) {
@@ -480,7 +502,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         return null;
     }
 
-    private String getMarcFieldText(Metadata md) {
+    private String getMarcFieldTextFromMetadata(Metadata md) {
         if (md instanceof Corporate) {
             return ((Corporate) md).getMainName();
         }
@@ -516,7 +538,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private String getWrappedMarcFieldText(MarcMetadataField configuredField, Metadata md) {
-        String marcFieldText = md == null ? configuredField.getStaticText() : getMarcFieldText(md);
+        String marcFieldText = md == null ? configuredField.getStaticText() : getMarcFieldTextFromMetadata(md);
         // check pattern
         if (StringUtils.isNoneBlank(configuredField.getPatternTemplate(), configuredField.getPatternTarget())) {
             marcFieldText = getPatternTargetFromText(marcFieldText, configuredField.getPatternTemplate(), configuredField.getPatternTarget());
@@ -671,8 +693,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         } else if (value.startsWith("Unos ")) {
             return 5;
         }
-        return 0;
 
+        return 0;
     }
 
     private StringBuilder createLeader(MarcDocstructField docstruct) {

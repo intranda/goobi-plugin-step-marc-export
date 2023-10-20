@@ -39,4 +39,6 @@ public class MarcMetadataField {
 
     private String patternTemplate;
     private String patternTarget;
+
+    private String mergeSeparator;
 }
