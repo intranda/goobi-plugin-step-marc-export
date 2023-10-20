@@ -1,11 +1,3 @@
-package de.intranda.goobi.plugins;
-
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
  *
@@ -25,6 +17,13 @@ import java.util.ArrayList;
  *
  */
 
+package de.intranda.goobi.plugins;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -78,6 +77,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     private static final Namespace marc = Namespace.getNamespace("marc", "http://www.loc.gov/MARC21/slim");
 
     private static final String SUBFIELD_NAME = "subfield";
+    private static final String CONTROLFIELD_NAME = "controlfield";
 
     private static final StorageProviderInterface storageProvider = StorageProvider.getInstance();
 
@@ -228,7 +228,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             boolean firstPersonOrCorporateWritten = false;
             for (MarcMetadataField configuredField : marcFields) {
                 String type = configuredField.getRulesetName();
-                //                MetadataType mdt = prefs.getMetadataTypeByName(type); // if type is null then mdt is also null
                 // condition type
                 MetadataType conditionType = null;
                 if (StringUtils.isNotBlank(configuredField.getConditionField())) {
@@ -441,7 +440,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String mergedText = getMergedText(elementToSetText.getText(), mergeSeparator, marcFieldText);
             elementToSetText.setText(mergedText);
 
-        } else if ("controlfield".equals(configuredField.getFieldType())) {
+        } else if (CONTROLFIELD_NAME.equals(configuredField.getFieldType())) {
             marcField.setText(marcFieldText);
 
         } else { // no need to merge or there is still no proper subfield available yet
@@ -470,7 +469,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private Element getElementToSetText(Element marcField, MarcMetadataField configuredField) {
-        if ("controlfield".equals(configuredField.getFieldType())) {
+        if (CONTROLFIELD_NAME.equals(configuredField.getFieldType())) {
             return marcField;
         }
 
@@ -545,7 +544,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private boolean isMarcFieldReusable(Element marcField, MarcMetadataField configuredField) {
-        return "controlfield".equals(configuredField.getFieldType()) ? isMarcControlFieldReusable(marcField, configuredField)
+        return CONTROLFIELD_NAME.equals(configuredField.getFieldType()) ? isMarcControlFieldReusable(marcField, configuredField)
                 : isMarcDataFieldReusable(marcField, configuredField);
     }
 
@@ -776,6 +775,5 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             log.error(e);
         }
         return null;
-
     }
 }
