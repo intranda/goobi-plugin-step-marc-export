@@ -121,7 +121,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String wrapperRight = hc.getString("@wrapperRight", "");
             String patternTemplate = hc.getString("@patternTemplate", "");
             String patternTarget = hc.getString("@patternTarget", "");
-            String mergeSeparator = hc.getString("@mergeSeparator", "");
+            String mergeSeparator = hc.getString("@mergeSeparator", null);
             MarcMetadataField mmf = new MarcMetadataField(type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName, additionalSubFieldCode,
                     additionalSubFieldValue, anchorMetadata, conditionField, conditionValue, conditionType, text, wrapperLeft, wrapperRight,
                     patternTemplate, patternTarget, mergeSeparator);
@@ -434,7 +434,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         Element elementToSetText;
         String mergeSeparator = configuredField.getMergeSeparator();
         // The controlfield-check was not there for Person and Corporation, but I think it should be. - Zehong 
-        if (StringUtils.isNotEmpty(mergeSeparator)
+        if (mergeSeparator != null
                 && (elementToSetText = getElementToSetText(marcField, configuredField)) != null) {
             
             String mergedText = getMergedText(elementToSetText.getText(), mergeSeparator, marcFieldText);
@@ -483,10 +483,13 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         StringBuilder textBuilder = new StringBuilder(oldText);
-        textBuilder.append(" ")
-                .append(separator)
-                .append(" ")
-                .append(newText);
+        textBuilder.append(" ");
+        
+        if (StringUtils.isNotEmpty(separator)) {
+            textBuilder.append(separator).append(" ");
+        }
+
+        textBuilder.append(newText);
 
         return textBuilder.toString();
     }
