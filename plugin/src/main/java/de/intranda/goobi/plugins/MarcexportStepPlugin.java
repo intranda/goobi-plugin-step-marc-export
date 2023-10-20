@@ -483,17 +483,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         return oldText + (StringUtils.isBlank(separator) ? " " : separator) + newText;
-
-        //        StringBuilder textBuilder = new StringBuilder(oldText);
-        //        textBuilder.append(" ");
-        //        
-        //        if (StringUtils.isNotEmpty(separator)) {
-        //            textBuilder.append(separator).append(" ");
-        //        }
-        //
-        //        textBuilder.append(newText);
-        //
-        //        return textBuilder.toString();
     }
 
     private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, MarcMetadataField configuredField, MetadataType mdt) {
