@@ -228,7 +228,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             boolean firstPersonOrCorporateWritten = false;
             for (MarcMetadataField configuredField : marcFields) {
                 String type = configuredField.getRulesetName();
-                MetadataType mdt = prefs.getMetadataTypeByName(type); // if type is null then mdt is also null
+                //                MetadataType mdt = prefs.getMetadataTypeByName(type); // if type is null then mdt is also null
                 // condition type
                 MetadataType conditionType = null;
                 if (StringUtils.isNotBlank(configuredField.getConditionField())) {
@@ -249,7 +249,9 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 if (type == null) {
                     // static text, not metadata
                     marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, null, conditionType);
+
                 } else {
+                    MetadataType mdt = prefs.getMetadataTypeByName(type);
                     List<? extends Metadata> list = getMetadataListGeneral(docstruct, configuredField, mdt);
                     if (list != null) {
                         for (Metadata md : list) {
@@ -430,25 +432,19 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         marcField = generateMarcField(recordElement, marcField, configuredField);
         String marcFieldText = getWrappedMarcFieldText(configuredField, md);
-        Element lastChild;
+        Element elementToSetText;
+        String mergeSeparator = configuredField.getMergeSeparator();
         // The controlfield-check was not there for Person and Corporation, but I think it should be. - Zehong 
-        if ("controlfield".equals(configuredField.getFieldType())) {
-            marcField.setText(marcFieldText);
+        if (StringUtils.isNotEmpty(mergeSeparator)
+                && (elementToSetText = getElementToSetText(marcField, configuredField)) != null) {
             
-        } else if (StringUtils.isNotEmpty(configuredField.getMergeSeparator())
-                && (lastChild = getLastChildOfField(marcField)) != null) {
+            String mergedText = getMergedText(elementToSetText.getText(), mergeSeparator, marcFieldText);
+            elementToSetText.setText(mergedText);
 
-            String mergeSeparator = configuredField.getMergeSeparator();
-            // merge new text with lastChild's old text
-            StringBuilder textBuilder = new StringBuilder(lastChild.getText());
-            textBuilder.append(" ")
-                    .append(mergeSeparator)
-                    .append(" ")
-                    .append(marcFieldText);
+        } else if ("controlfield".equals(configuredField.getFieldType())) {
+            marcField.setText(marcFieldText);
 
-            lastChild.setText(textBuilder.toString());
-
-        } else { // no need to merge or there is still no subfield available yet
+        } else { // no need to merge or there is still no proper subfield available yet
             Element subfield = new Element(SUBFIELD_NAME, marc);
             subfield.setAttribute("code", configuredField.getMarcSubTag());
             subfield.setText(marcFieldText);
@@ -473,9 +469,27 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         return marcField;
     }
 
-    private Element getLastChildOfField(Element marcField) {
+    private Element getElementToSetText(Element marcField, MarcMetadataField configuredField) {
+        if ("controlfield".equals(configuredField.getFieldType())) {
+            return marcField;
+        }
+
         List<Element> elements = marcField.getChildren();
         return elements.isEmpty() ? null : elements.get(elements.size() - 1);
+    }
+
+    private String getMergedText(String oldText, String separator, String newText) {
+        if (StringUtils.isBlank(oldText)) {
+            return newText;
+        }
+
+        StringBuilder textBuilder = new StringBuilder(oldText);
+        textBuilder.append(" ")
+                .append(separator)
+                .append(" ")
+                .append(newText);
+
+        return textBuilder.toString();
     }
 
     private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, MarcMetadataField configuredField, MetadataType mdt) {
@@ -531,6 +545,16 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private boolean isMarcFieldReusable(Element marcField, MarcMetadataField configuredField) {
+        return "controlfield".equals(configuredField.getFieldType()) ? isMarcControlFieldReusable(marcField, configuredField)
+                : isMarcDataFieldReusable(marcField, configuredField);
+    }
+
+    private boolean isMarcControlFieldReusable(Element marcField, MarcMetadataField configuredField) {
+        return marcField != null
+                && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag());
+    }
+
+    private boolean isMarcDataFieldReusable(Element marcField, MarcMetadataField configuredField) {
         return marcField != null
                 && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
                 && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
