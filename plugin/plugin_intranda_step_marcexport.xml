@@ -6,6 +6,190 @@
           3.) project name matches and step name is *
           4.) project name and step name are *
 	-->
+    <config>
+        <!-- which projects to use for (can be more then one, otherwise use *) -->
+        <project>WU_Wien</project>
+        <step>export marc</step>
+
+        <!-- Absolute path of the folder that is used to save the exported MARC file. -->
+        <exportFolder>/opt/digiverso/g2g/workspace/workflow/marcexport</exportFolder>
+
+        <!-- A doctype tag has following attributes:
+              ======= General Attributes =======
+              - @export: true if this type of doc struct is exportable, false otherwise.
+              - @rulesetName: name of the DocStructType. 
+              - @leader6: sets up the record type. DEFAULT "a", meaning language material.
+              - @leader7: sets up the bibliographic level. DEFAULT "m", meaning Monograph/Item.
+              - @leader19: sets up the multipart resource record level. DEFAULT " ".
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+              ======= OPTIONAL Atributes for Dependency Check ======= 
+              - @dependencyType: anchor | child. Sets up where to find the metadata that shall be used for dependency check. OPTIONAL.
+                                              Once configured, then the exportability of this doctype also depends on the result of the dependency check.
+              - @dependencyMetadata: name of the metadata that shall be used for the dependency check. OPTIONAL.
+              - @dependencyValue: expected value of the metadata that shall be used for the dependency check. OPTIONAL.
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+         -->
+        <doctype export="true" rulesetName="PeriodicalVolume" leader6="a" leader7="b" leader19="" />
+        <!-- There can be multiple doctype tags configured. -->
+        <doctype export="false" rulesetName="Periodical" leader6="a" leader7="s" leader19="" />
+        <!-- ONLY export a Monograph document WHEN it has a metadata named PlaceOfPublication with value Paris. -->
+        <doctype export="true" rulesetName="Monograph" leader6="a" leader7="m" leader19="" dependencyType="child" dependencyMetadata="PlaceOfPublication" dependencyValue="Paris" />
+                
+        <!-- A marcField tag has following attributes:
+              ======= General Attributes =======
+              - @type: controlfield | datafield. 
+                  - controlfield: generates a <marc:controlfield> tag
+                  - datafield: generates a <marc:datafield> tag                 
+              - @mainTag: sets up the main tag's @tag attribute in the MARC file.
+              - @ind1: sets up the main tag's @ind1 attribute in the MARC file.
+              - @ind2: sets up the main tag's @ind2 attribute in the MARC file.
+              - @subTag: sets up the @code attribute of the main tag's subfield tag.
+              - @reuseMode: none | subField. 
+                  - none: a main tag will always be created for each entry.
+                  - subField: multiple entries of the same type will share a common main tag. 
+              - @rulesetName: type of the metadata whose values shall be used for generating entries in the MARC file. Either this or the @text attribute should be configured.
+              - @anchorMetadata: true | false. 
+                  - true: the metadata is located in the anchor METS file. 
+                  - false: the metadata is located in the child METS file.
+              - @text: sets a plain text that shall be used for generating entries in the MARC file. Either this or the @rulesetName attribute should be configured. 
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+              ======= OPTIONAL Atributes for Additional Subfields =======
+              - @additionalSubFieldCode: creates an additional subfield sub-tag under this main tag and sets up its @code attribute with the value configured here.
+              - @additionalSubFieldValue: sets up the text value of this additional subfield sub-tag with the value configured here
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+              ======= OPTIONAL Atributes for Condition Checks =======
+              - @conditionField: type of the metadata whose values shall be used for the condition check. 
+              - @conditionValue: sets up the expected value of the metadata that shall be used for the condition check.
+              - @conditionType: is | not | any. 
+                  - is: condition check passes if value of the metadata configured by @conditionField matches exactly the expected value configured by @conditionValue
+                  - not: condition check passes if value of the metadata configured by @conditionField DOES NOT match the expected value configured by @conditionValue
+                  - any: condition check passes if at least one metadata configured by @conditionField is found. The attribute @conditionValue will be of no use in this case.
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+              ======= OPTIONAL Atributes for Wrapping Up Values =======
+              - @wrapperLeft: string value that shall be prepended to the main value.
+              - @wrapperRight: string value that shall be appended to the main value.
+              ATTENTION: For both wrapper attributes here, if it is configured "", then an empty space will be used as wrapper. So if no wrapper is needed at all, the attribute has to be removed completely.
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+              ======= OPTIONAL Atributes for Pattern Extraction =======
+              - @patternTemplate: a template string consisting of several parts separated by several separators. ALL characters except letters and numbers will be regarded as separators.
+              - @patternTarget: sets up the target part whose value shall be written into the MARC file. 
+                                         If the part configured here is not found in the template, or if the original value does not match the pattern, then the original value will be used.
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+              ======= OPTIONAL Atributes for Merging Entries =======
+              - @mergeSeparator: sets up separator that shall be used to separate values from different entries when merging them into one. 
+                                             ATTENTION: 
+                                             - In order to merge entries one has to assure that @reuseMode is set to be `subField`
+                                             - An empty setting "" will trigger the use of an empty space as the separator.
+                                             - If no merging is wanted, then either set the @reuseMode to `none` or remove the @mergeSeparator attribute from the tag.
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+         -->
+        <marcField type="controlfield" mainTag="001" ind1=" " ind2=" " subTag=" " reuseMode="none" rulesetName="CatalogIDDigital" />
+        <marcField type="controlfield" mainTag="002" ind1=" " ind2=" " subTag=" " reuseMode="none" rulesetName="RezenssionsZssDBID" />
+        <!-- A merging of several different metadata as well as plain text values is also possible. One has to assure that the same main tag is reused, which depends on the configuration of the field type:
+              - controlfield: one only has to assure that @mainTag matches each other.
+              - datafield: one has to assure three things, namely @mainTag match, @ind1 match, and either @ind2 is "X" or it is also a match.
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+              The example below will result into a tag like:
+              <marc:controlfield tag="003">shelfmarksource_1 ||| shelfmarksource_2 ||| ... ||| DocLanguage | c</marc:controlfield>
+        -->
+        <marcField type="controlfield" mainTag="003" ind1=" " ind2=" " subTag=" " reuseMode="subField" rulesetName="shelfmarksource" mergeSeparator="\|\|\|" wrapperLeft="" wrapperRight="" />
+        <marcField type="controlfield" mainTag="003" ind1=" " ind2=" " subTag=" " reuseMode="subField" rulesetName="DocLanguage" mergeSeparator="\|\|\|" wrapperLeft="" wrapperRight="" />       
+        <marcField type="controlfield" mainTag="003" ind1=" " ind2=" " subTag=" " reuseMode="subField" text="c" mergeSeparator="\|" wrapperLeft="" />
+        <!-- ATTENTION: neither Person nor Corporate is accepted in a controlfield. -->
+        <!-- 
+        <marcField type="controlfield" mainTag="003" ind1=" " ind2=" " subTag=" " reuseMode="subField" rulesetName="Author" mergeSeparator="#"/>
+        -->
+        
+        <marcField type="datafield" mainTag="020" ind1="_" ind2="_" subTag="a" reuseMode="none" rulesetName="ISBN" />
+        
+        <!-- The example below will result in a tag like:
+               <marc:datafield tag="024" ind1="7" ind2=" ">
+                   <marc:subfield code="a">ger</marc:subfield>
+                   <marc:subfield code="2">lang</marc:subfield>
+               </marc:datafield>
+         -->
+        <marcField type="datafield" mainTag="041" ind1="a" ind2="_" subTag="a" reuseMode="subField" rulesetName="DocLanguage" additionalSubFieldCode="2" additionalSubFieldValue="lang" />
+             
+        <!-- ATTENTION:
+               - MARC allows ONLY ONE main entry, hence ONLY the first Person or Corporate but not both, will be exported to the MARC file.
+               - The tag for a main entry as PERSON is 100, while the tag for one as CORPORATE is 110.
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+               The example below will result in a tag like:
+               <marc:datafield tag="100" ind1="1" ind2=" ">
+                   <marc:subfield code="a">{Bourbaki, Nicolas}</marc:subfield>
+                   <marc:subfield code="4">aut</marc:subfield>
+               </marc:datafield>
+         -->
+        <marcField type="datafield" mainTag="100" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="Author" additionalSubFieldCode="4" additionalSubFieldValue="aut" wrapperLeft="{" wrapperRight="}" />
+        <!-- If Author was found, then the following configuration of CorporateContributor will be ignored. -->
+        <marcField type="datafield" mainTag="110" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="CorporateContributor" additionalSubFieldCode="4" additionalSubFieldValue="corporate" />
+        
+        <marcField type="datafield" mainTag="245" ind1="1" ind2="X" subTag="a" reuseMode="none" rulesetName="TitleDocMain" />
+        <marcField type="datafield" mainTag="245" ind1="1" ind2="X" subTag="b" reuseMode="subField" rulesetName="TitleDocSub1" />
+        
+        <!-- The example below will result in a tag like:
+               <marc:datafield tag="247" ind1="1" ind2="0">
+                   <marc:subfield code="b">shelfmarksource_1 // shelfmarksource_2 // ... // shelfmarksource_N | DocLanguage</marc:subfield>
+               </marc:datafield>
+         -->
+        <marcField type="datafield" mainTag="247" ind1="1" ind2="X" subTag="b" reuseMode="subField" rulesetName="shelfmarksource" mergeSeparator="//" wrapperLeft="" wrapperRight=""/>
+        <marcField type="datafield" mainTag="247" ind1="1" ind2="X" subTag="b" reuseMode="subField" rulesetName="DocLanguage" mergeSeparator="\|" wrapperLeft="" />
+        
+        <!-- Differing from the main entry, there can be multiple entries for additional access.
+               The tag for an additional entry as PERSON is 700, while the tag for one as CORPORATE is 710.
+         -->
+        <marcField type="datafield" mainTag="710" ind1="1" ind2="_" subTag="a" reuseMode="subField" rulesetName="CorporateContributor" additionalSubFieldCode="4" additionalSubFieldValue="corporate" />
+        
+        <marcField type="datafield" mainTag="264" ind1="_" ind2="1" subTag="a" reuseMode="subField" rulesetName="PlaceOfPublication" />
+        <marcField type="datafield" mainTag="264" ind1="_" ind2="1" subTag="b" reuseMode="subField" rulesetName="PublisherName" />
+        
+        <!-- The following example will try to pattern match the _dateDigitization and retrieve the value matched with Y.
+               Suppose _dateDigitization is 2023-10-24, then Y will be matched to 2023. 
+               The length or format of markers for each part does not matter, as long as every marker consists only of letters and numbers.
+               - One can pattern match using template "YYYY-MM-DD" and retrieve at last the target "YYYY", or one can also pattern match using "year-Month-DAY" and retrieve at last target "year".
+               - ALL characters except letters and numbers will be regarded as separators, including spaces. One can also use several different separators in a template.
+               - Only one target can be retrieved in each tag, so if more than one targets are wanted, then they should be configured in consequent tags. Merging can be used to combine these targets afterwards.
+               - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+               For example, one can reorder the time format from YYYY-MM-DD to DD.MM.YYYY in the following way:
+               <marcField type="datafield" mainTag="265" ind1="1" ind2="2" subTag="a" reuseMode="subField" rulesetName="_dateDigitization" patternTemplate="YYYY-MM-DD" patternTarget="DD" mergeSeparator="." />
+               <marcField type="datafield" mainTag="265" ind1="1" ind2="2" subTag="a" reuseMode="subField" rulesetName="_dateDigitization" patternTemplate="YYYY-MM-DD" patternTarget="MM" mergeSeparator="." />
+               <marcField type="datafield" mainTag="265" ind1="1" ind2="2" subTag="a" reuseMode="subField" rulesetName="_dateDigitization" patternTemplate="YYYY-MM-DD" patternTarget="YYYY" mergeSeparator="." />
+               - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+               The example below will retrieve the first part, namely the YEAR part of the pattern. 
+         -->
+        <marcField type="datafield" mainTag="264" ind1="_" ind2="1" subTag="c" reuseMode="subField" rulesetName="_dateDigitization" patternTemplate="Y-M-D" patternTarget="D" />
+        <marcField type="datafield" mainTag="264" ind1="3" ind2="1" subTag="c" reuseMode="subField" rulesetName="PublisherName" />
+
+        <!-- The metadata type configured by @rulesetName must be defined in the METS file. 
+               But it does NOT have to be declared usable for all DocStructs configured by the previous <doctype> tags. 
+               Unusable ones for some <doctype> will just get ignored for that <doctype>, without influencing other <doctype>s. 
+         -->
+        <marcField type="datafield" mainTag="300" ind1="_" ind2="_" subTag="a" reuseMode="subField" rulesetName="PhysicalDescriptionAccompanyingMaterial" />
+        
+        <!-- The following examples show the usage of condition checks.
+              - The first one checks if the metadata of type PlaceOfPublication has value "Hanau", and if so then save a text value "IS HANAU" to the MARC.
+              - The second one checks if the metadata of type PlaceOfPublication does NOT have value "Uanah", and if so then save a text value "NOT UANAH" to the MARC. 
+              - The third one checks if there exists a metadata of type PlaceOfPublication, and if so then save a text value "WHATEVER" to the MARC.
+              REMARK: of course one can use @rulesetName attribute instead of @text here, in which cases the value of the configured metadata @rulesetName will be retrieved once the condition check passes.
+              - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+              Suppose we have a metadata of type PlaceOfPublication in our METS file, and its value is exactly "Hanau", then the following example will result in a tag like:
+              <marc:datafield tag="540" ind1=" " ind2=" ">
+                  <marc:subfield code="2">IS HANAU</marc:subfield>
+                  <marc:subfield code="2">NOT UANAH</marc:subfield>
+                  <marc:subfield code="2">WHATEVER</marc:subfield>
+              </marc:datafield>
+         -->
+        <marcField type="datafield" mainTag="540" ind1="_" ind2="_" subTag="2" reuseMode="subField" text="IS HANAU" conditionField="PlaceOfPublication" conditionValue="Hanau" conditionType="is" />
+        <marcField type="datafield" mainTag="540" ind1="_" ind2="_" subTag="2" reuseMode="subField" text="NOT UANAH" conditionField="PlaceOfPublication" conditionValue="Uanah" conditionType="not" />
+        <!-- conditionValue is not important here, existence of any metadata of this type will give us a true -->
+        <marcField type="datafield" mainTag="540" ind1="_" ind2="_" subTag="2" reuseMode="subField" text="WHATEVER" conditionField="PlaceOfPublication" conditionValue="" conditionType="any" />
+        
+        <!-- relation to host -->
+        <!-- The following examples try to retrieve values of some metadata recorded in the anchor METS file. -->
+        <marcField type="datafield" mainTag="773" ind1="1" ind2="8" subTag="a" reuseMode="subField" rulesetName="TitleDocMain" anchorMetadata="true" />
+        <marcField type="datafield" mainTag="773" ind1="1" ind2="8" subTag="w" reuseMode="subField" rulesetName="CatalogIDDigital" anchorMetadata="true" />
+
+    </config>
 
     <config>
         <!-- which projects to use for (can be more then one, otherwise use *) -->
