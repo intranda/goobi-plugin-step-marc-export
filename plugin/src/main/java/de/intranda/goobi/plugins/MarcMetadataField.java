@@ -60,4 +60,6 @@ public class MarcMetadataField {
     private String patternTarget;
 
     private String mergeSeparator;
+
+    private String regularExpression; // regular expression to manipulate the value. Usage is '/searchvalue/replacement/'
 }

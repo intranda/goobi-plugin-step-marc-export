@@ -91,14 +91,21 @@
               - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
               The example below will result into a tag like:
               <marc:controlfield tag="003">shelfmarksource_1 ||| shelfmarksource_2 ||| ... ||| DocLanguage | c</marc:controlfield>
-        -->
         <marcField type="controlfield" mainTag="003" ind1=" " ind2=" " subTag=" " reuseMode="subField" rulesetName="shelfmarksource" mergeSeparator="\|\|\|" wrapperLeft="" wrapperRight="" />
         <marcField type="controlfield" mainTag="003" ind1=" " ind2=" " subTag=" " reuseMode="subField" rulesetName="DocLanguage" mergeSeparator="\|\|\|" wrapperLeft="" wrapperRight="" />       
         <marcField type="controlfield" mainTag="003" ind1=" " ind2=" " subTag=" " reuseMode="subField" text="c" mergeSeparator="\|" wrapperLeft="" />
+        -->
         <!-- ATTENTION: neither Person nor Corporate is accepted in a controlfield. -->
         <!-- 
         <marcField type="controlfield" mainTag="003" ind1=" " ind2=" " subTag=" " reuseMode="subField" rulesetName="Author" mergeSeparator="#"/>
         -->
+        
+        <marcField type="controlfield" mainTag="008" ind1=" " ind2=" " subTag=" " reuseMode="subField" rulesetName="SubmissionDate" mergeSeparator="\|" regularExpression="/\d{2}(\d{2})-(\d{2})-(\d{2})/$1$2$3/" />
+        <marcField type="controlfield" mainTag="008" ind1=" " ind2=" " subTag=" " reuseMode="subField" text="\|\|\|" mergeSeparator=" " />
+        <marcField type="controlfield" mainTag="008" ind1=" " ind2=" " subTag=" " reuseMode="subField" text="om" mergeSeparator=" " />
+        <marcField type="controlfield" mainTag="008" ind1=" " ind2=" " subTag=" " reuseMode="subField" text="\|\|\| \|" mergeSeparator=" " />
+        <marcField type="controlfield" mainTag="008" ind1=" " ind2=" " subTag=" " reuseMode="subField" rulesetName="DocLanguage" mergeSeparator=" " />
+        <marcField type="controlfield" mainTag="008" ind1=" " ind2=" " subTag=" " reuseMode="subField" text="c" mergeSeparator=" " />        
         
         <marcField type="datafield" mainTag="020" ind1="_" ind2="_" subTag="a" reuseMode="none" rulesetName="ISBN" />
         

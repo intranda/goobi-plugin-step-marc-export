@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -62,11 +63,13 @@ import ugh.dl.Person;
 import ugh.dl.Prefs;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
+import ugh.fileformats.mets.MetsModsImportExport;
 
 @PluginImplementation
 @Log4j2
 public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
+    private static final long serialVersionUID = -8330640131681090785L;
     @Getter
     private String title = "intranda_step_marcexport";
     @Getter
@@ -83,8 +86,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private static final Pattern SEPARATOR_PATTERN = Pattern.compile("[^A-Za-z0-9]");
 
-    private List<MarcMetadataField> marcFields = new ArrayList<>();
-    private List<MarcDocstructField> docstructFields = new ArrayList<>();
+    private transient List<MarcMetadataField> marcFields = new ArrayList<>();
+    private transient List<MarcDocstructField> docstructFields = new ArrayList<>();
 
     private String exportFolder;
 
@@ -122,9 +125,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String patternTemplate = hc.getString("@patternTemplate", "");
             String patternTarget = hc.getString("@patternTarget", "");
             String mergeSeparator = hc.getString("@mergeSeparator", null);
+            String regularExpression = hc.getString("@regularExpression", null);
             MarcMetadataField mmf = new MarcMetadataField(type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName, additionalSubFieldCode,
                     additionalSubFieldValue, anchorMetadata, conditionField, conditionValue, conditionType, text, wrapperLeft, wrapperRight,
-                    patternTemplate, patternTarget, mergeSeparator);
+                    patternTemplate, patternTarget, mergeSeparator, regularExpression);
             marcFields.add(mmf);
         }
 
@@ -186,8 +190,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public PluginReturnValue run() {
-        boolean successful = true; // TODO: reuse successful to control the workflow
-        // your logic goes here
         Prefs prefs = step.getProzess().getRegelsatz().getPreferences();
 
         List<DocStruct> docstructList = prepareDocStructList();
@@ -239,8 +241,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                  *      1. Fields beginning with a 1 are referred to as main entry fields, and there should be ONLY ONE of them in each MARC record.
                  *      1.1. Person - 100
                  *      1.2. Corporate - 110
-                 *      
-                 *      2. Fields beginning with a 7 are used to provide additional access to the manifestation being cataloged. 
+                 * 
+                 *      2. Fields beginning with a 7 are used to provide additional access to the manifestation being cataloged.
                  *      2.1. Person - 700
                  *      2.2. Corporate - 710
                  */
@@ -283,12 +285,11 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 out.output(marcDoc, new FileOutputStream(exportFolder + step.getProzess().getId() + "/" + identifier + ".xml"));
             } catch (IOException e) {
                 log.error(e);
+                return PluginReturnValue.ERROR;
             }
         }
         log.info("Marcexport step plugin executed");
-        if (!successful) {
-            return PluginReturnValue.ERROR;
-        }
+
         return PluginReturnValue.FINISH;
     }
 
@@ -296,7 +297,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         Fileformat ff = getFileformat(); // only used to create the docstructList
         if (ff == null) {
             // log error message
-            return null;
+            return null; // NOSONAR
         }
 
         try {
@@ -304,7 +305,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
             if (!isIdentifierExistsInDocStruct(docstruct)) {
                 Helper.setFehlerMeldung("Missing identifier metadata");
-                return null;
+                return null; // NOSONAR
             }
 
             List<DocStruct> docstructList = new ArrayList<>();
@@ -318,7 +319,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         } catch (PreferencesException e1) {
             log.error(e1);
-            return null;
+            return null; // NOSONAR
         }
     }
 
@@ -355,9 +356,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private boolean isDocStructExportable(DocStruct docstruct, String identifier, MarcDocstructField currentField) {
-        return StringUtils.isNotBlank(identifier)
-                && currentField != null
-                && currentField.isExportDocstruct()
+        return StringUtils.isNotBlank(identifier) && currentField != null && currentField.isExportDocstruct()
                 && isFieldDependencyFulfilled(docstruct, currentField);
     }
 
@@ -382,8 +381,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         String dependencyType = currentField.getDependencyMetadata();
         String dependencyValue = currentField.getDependencyValue();
         for (Metadata md : dsToCheck.getAllMetadata()) {
-            if (md.getType().getName().equals(dependencyType)
-                    && md.getValue().equals(dependencyValue)) {
+            if (md.getType().getName().equals(dependencyType) && md.getValue().equals(dependencyValue)) {
                 // metadata found and its value matches
                 return true;
             }
@@ -406,17 +404,31 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             if (mdt.getIsPerson()) {
                 sameFirst = sameFirst && firstMetadata instanceof Person && ((Person) firstMetadata).equals((Person) currentMetadata);
             } else if (mdt.isCorporate()) {
-                sameFirst = sameFirst && firstMetadata instanceof Corporate && ((Corporate) firstMetadata).equals((Corporate) currentMetadata);
+                sameFirst = sameFirst && firstMetadata instanceof Corporate && ((Corporate) firstMetadata).equals(currentMetadata);
             }
             // -1 means that this Metadata should not be written
             // 710 means that this is an additional Corporate and can be written
             // 700 means that this is an additional Person and can be written
-            return sameFirst ? -1 : "710".equals(marcMainTag) ? 710 : "700".equals(marcMainTag) ? 700 : -1;
+            if (sameFirst) {
+                return -1;
+            } else if ("710".equals(marcMainTag)) {
+                return 710;
+            } else if ("700".equals(marcMainTag)) {
+                return 700;
+            } else {
+                return -1;
+            }
         }
 
         // 110 means that this is the first Corporate and can be written
         // 100 means that this is the first Person and can be written
-        return "110".equals(marcMainTag) ? 110 : "100".equals(marcMainTag) ? 100 : -1;
+        if ("110".equals(marcMainTag)) {
+            return 110;
+        } else if ("100".equals(marcMainTag)) {
+            return 100;
+        } else {
+            return -1;
+        }
     }
 
     private Element writeMetadataGeneral(DocStruct docstruct, Element recordElement, Element marcField, MarcMetadataField configuredField,
@@ -430,13 +442,13 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         marcField = generateMarcField(recordElement, marcField, configuredField);
+
         String marcFieldText = getWrappedMarcFieldText(configuredField, md);
         Element elementToSetText;
         String mergeSeparator = configuredField.getMergeSeparator();
-        // The controlfield-check was not there for Person and Corporation, but I think it should be. - Zehong 
-        if (mergeSeparator != null
-                && (elementToSetText = getElementToSetText(marcField, configuredField)) != null) {
-            
+        // The controlfield-check was not there for Person and Corporation, but I think it should be. - Zehong
+        if (mergeSeparator != null && (elementToSetText = getElementToSetText(marcField, configuredField)) != null) {
+
             String mergedText = getMergedText(elementToSetText.getText(), mergeSeparator, marcFieldText);
             elementToSetText.setText(mergedText);
 
@@ -506,7 +518,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             return docstruct.getParent().getAllMetadataByType(mdt);
         }
 
-        return null;
+        return Collections.emptyList();
     }
 
     private String getMarcFieldTextFromMetadata(Metadata md) {
@@ -543,13 +555,11 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     }
 
     private boolean isMarcControlFieldReusable(Element marcField, MarcMetadataField configuredField) {
-        return marcField != null
-                && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag());
+        return marcField != null && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag());
     }
 
     private boolean isMarcDataFieldReusable(Element marcField, MarcMetadataField configuredField) {
-        return marcField != null
-                && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
+        return marcField != null && marcField.getAttributeValue("tag").equals(configuredField.getMarcMainTag())
                 && configuredField.getInd1().equals(marcField.getAttributeValue("ind1"))
                 && ("X".equals(configuredField.getInd2()) || configuredField.getInd2().equals(marcField.getAttributeValue("ind2")));
     }
@@ -561,10 +571,23 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             marcFieldText = getPatternTargetFromText(marcFieldText, configuredField.getPatternTemplate(), configuredField.getPatternTarget());
         }
 
+        if (StringUtils.isNotBlank(configuredField.getRegularExpression())) {
+            List<String> params = MetsModsImportExport.splitRegularExpression(configuredField.getRegularExpression());
+            marcFieldText = marcFieldText.replaceAll(params.get(0), params.get(1));
+        }
+
         String left = configuredField.getWrapperLeft();
         String right = configuredField.getWrapperRight();
-        left = left == null ? "" : StringUtils.isEmpty(left) ? " " : left;
-        right = right == null ? "" : StringUtils.isEmpty(right) ? " " : right;
+        if (left == null) {
+            left = "";
+        } else if (StringUtils.isEmpty(left)) {
+            left = " ";
+        }
+        if (right == null) {
+            right = "";
+        } else if (StringUtils.isEmpty(right)) {
+            right = " ";
+        }
 
         return left + marcFieldText + right;
     }
