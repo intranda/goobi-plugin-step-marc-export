@@ -396,11 +396,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private int getMetadataWriteCode(MarcMetadataField configuredField, MetadataType mdt, Metadata firstMetadata, Metadata currentMetadata,
             boolean firstPersonOrCorporateWritten) {
-        if (!mdt.getIsPerson() && !mdt.isCorporate()) {
-            // 0 means this is a non-person non-corporate Metadata, and hence can be written
-            return 0;
-        }
-
         String marcMainTag = configuredField.getMarcMainTag();
         switch (marcMainTag) {
             case "100":
@@ -423,10 +418,14 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     // 700 means that this is an additional Person and can be written
                     if (sameFirst) {
                         return -1;
-                    } else if ("710".equals(marcMainTag)) {
-                        return 710;
                     } else if ("700".equals(marcMainTag)) {
                         return 700;
+                    } else if ("710".equals(marcMainTag)) {
+                        return 710;
+                    } else if ("711".equals(marcMainTag)) {
+                        return 711;
+                    } else if ("730".equals(marcMainTag)) {
+                        return 730;
                     } else {
                         return -1;
                     }
@@ -434,10 +433,15 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
                 // 110 means that this is the first Corporate and can be written
                 // 100 means that this is the first Person and can be written
-                if ("110".equals(marcMainTag)) {
-                    return 110;
-                } else if ("100".equals(marcMainTag)) {
+
+                if ("100".equals(marcMainTag)) {
                     return 100;
+                } else if ("110".equals(marcMainTag)) {
+                    return 110;
+                } else if ("111".equals(marcMainTag)) {
+                    return 111;
+                } else if ("130".equals(marcMainTag)) {
+                    return 130;
                 } else {
                     return -1;
                 }
