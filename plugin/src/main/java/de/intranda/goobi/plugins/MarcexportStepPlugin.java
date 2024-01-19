@@ -23,8 +23,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -88,6 +90,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private transient List<MarcMetadataField> marcFields = new ArrayList<>();
     private transient List<MarcDocstructField> docstructFields = new ArrayList<>();
+
+    private static final SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 
     private String exportFolder;
 
@@ -566,6 +570,9 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private String getWrappedMarcFieldText(MarcMetadataField configuredField, Metadata md) {
         String marcFieldText = md == null ? configuredField.getStaticText() : getMarcFieldTextFromMetadata(md);
+        if ("{date}".equals(marcFieldText)) {
+            marcFieldText = formatter.format(new Date());
+        }
         // check pattern
         if (StringUtils.isNoneBlank(configuredField.getPatternTemplate(), configuredField.getPatternTarget())) {
             marcFieldText = getPatternTargetFromText(marcFieldText, configuredField.getPatternTemplate(), configuredField.getPatternTarget());
