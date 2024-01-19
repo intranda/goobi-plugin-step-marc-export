@@ -60,6 +60,8 @@ import ugh.dl.Corporate;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
+import ugh.dl.MetadataGroup;
+import ugh.dl.MetadataGroupType;
 import ugh.dl.MetadataType;
 import ugh.dl.Person;
 import ugh.dl.Prefs;
@@ -254,24 +256,50 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 if (type == null) {
                     // static text, not metadata
                     marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, null, conditionType);
+                } else if ("group".equals(configuredField.getReuseMode())) {
+                    // metadata groups
+                    MetadataGroupType mgt = prefs.getMetadataGroupTypeByName(type);
+                    List<MetadataGroup> grps = docstruct.getAllMetadataGroupsByType(mgt);
+                    for (MetadataGroup grp : grps) {
+                        // generate new main field
+                        marcField = createMainElement(recordElement, configuredField);
+
+                        for (Metadata md : grp.getMetadataList()) {
+                            MetadataType mdt = md.getType();
+                            // find mapping for
+                            String groupFieldName = mgt.getName() + "/" + mdt.getName();
+                            // find matching export mapping
+
+                            for (MarcMetadataField field : marcFields) {
+                                if (StringUtils.isNotBlank(field.getRulesetName()) && field.getRulesetName().equals(groupFieldName)) {
+                                    marcField = writeMetadataGeneral(docstruct, recordElement, marcField, field, md, conditionType);
+                                }
+
+                            }
+
+                        }
+                    }
 
                 } else {
                     MetadataType mdt = prefs.getMetadataTypeByName(type);
-                    List<? extends Metadata> list = getMetadataListGeneral(docstruct, configuredField, mdt);
-                    if (list != null) {
-                        for (Metadata md : list) {
-                            // check if we should call writeMetadataGeneral, which depends on mdt
-                            int writeCode = getMetadataWriteCode(configuredField, mdt, firstPersonOrCorporate, md, firstPersonOrCorporateWritten);
-                            if (writeCode < 0) {
-                                continue;
-                            }
+                    if (mdt != null) {
+                        List<? extends Metadata> list = getMetadataListGeneral(docstruct, configuredField, mdt);
 
-                            marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, md, conditionType);
+                        if (list != null) {
+                            for (Metadata md : list) {
+                                // check if we should call writeMetadataGeneral, which depends on mdt
+                                int writeCode = getMetadataWriteCode(configuredField, mdt, firstPersonOrCorporate, md, firstPersonOrCorporateWritten);
+                                if (writeCode < 0) {
+                                    continue;
+                                }
 
-                            if (writeCode == 100 || writeCode == 110 || writeCode == 111 || writeCode == 130) {
-                                // first Person or first Corporate found
-                                firstPersonOrCorporate = md;
-                                firstPersonOrCorporateWritten = true;
+                                marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, md, conditionType);
+
+                                if (writeCode == 100 || writeCode == 110 || writeCode == 111 || writeCode == 130) {
+                                    // first Person or first Corporate found
+                                    firstPersonOrCorporate = md;
+                                    firstPersonOrCorporateWritten = true;
+                                }
                             }
                         }
                     }

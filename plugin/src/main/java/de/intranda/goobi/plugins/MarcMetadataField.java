@@ -38,7 +38,10 @@ public class MarcMetadataField {
 
     private String marcSubTag;
 
-    private String reuseMode; // subFied = create new subField within existing main field, none (default): always create a new main field
+    // subFied = create new subField within existing main field
+    // none (default): always create a new main field
+    // group = use the same main field for a metadata group, but create a new one for the next group
+    private String reuseMode;
 
     private String rulesetName;
 
