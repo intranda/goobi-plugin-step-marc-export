@@ -268,7 +268,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
                             marcField = writeMetadataGeneral(docstruct, recordElement, marcField, configuredField, md, conditionType);
 
-                            if (writeCode == 100 || writeCode == 110) {
+                            if (writeCode == 100 || writeCode == 110 || writeCode == 111 || writeCode == 130) {
                                 // first Person or first Corporate found
                                 firstPersonOrCorporate = md;
                                 firstPersonOrCorporateWritten = true;
@@ -402,36 +402,48 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         }
 
         String marcMainTag = configuredField.getMarcMainTag();
+        switch (marcMainTag) {
+            case "100":
+            case "110":
+            case "111":
+            case "130":
+            case "700":
+            case "710":
+            case "711":
+            case "730":
+                if (firstPersonOrCorporateWritten) {
+                    boolean sameFirst = firstMetadata != null;
+                    if (mdt.getIsPerson()) {
+                        sameFirst = sameFirst && firstMetadata instanceof Person && ((Person) firstMetadata).equals((Person) currentMetadata);
+                    } else if (mdt.isCorporate()) {
+                        sameFirst = sameFirst && firstMetadata instanceof Corporate && ((Corporate) firstMetadata).equals(currentMetadata);
+                    }
+                    // -1 means that this Metadata should not be written
+                    // 710 means that this is an additional Corporate and can be written
+                    // 700 means that this is an additional Person and can be written
+                    if (sameFirst) {
+                        return -1;
+                    } else if ("710".equals(marcMainTag)) {
+                        return 710;
+                    } else if ("700".equals(marcMainTag)) {
+                        return 700;
+                    } else {
+                        return -1;
+                    }
+                }
 
-        if (firstPersonOrCorporateWritten) {
-            boolean sameFirst = firstMetadata != null;
-            if (mdt.getIsPerson()) {
-                sameFirst = sameFirst && firstMetadata instanceof Person && ((Person) firstMetadata).equals((Person) currentMetadata);
-            } else if (mdt.isCorporate()) {
-                sameFirst = sameFirst && firstMetadata instanceof Corporate && ((Corporate) firstMetadata).equals(currentMetadata);
-            }
-            // -1 means that this Metadata should not be written
-            // 710 means that this is an additional Corporate and can be written
-            // 700 means that this is an additional Person and can be written
-            if (sameFirst) {
-                return -1;
-            } else if ("710".equals(marcMainTag)) {
-                return 710;
-            } else if ("700".equals(marcMainTag)) {
-                return 700;
-            } else {
-                return -1;
-            }
-        }
+                // 110 means that this is the first Corporate and can be written
+                // 100 means that this is the first Person and can be written
+                if ("110".equals(marcMainTag)) {
+                    return 110;
+                } else if ("100".equals(marcMainTag)) {
+                    return 100;
+                } else {
+                    return -1;
+                }
+            default:
+                return 0;
 
-        // 110 means that this is the first Corporate and can be written
-        // 100 means that this is the first Person and can be written
-        if ("110".equals(marcMainTag)) {
-            return 110;
-        } else if ("100".equals(marcMainTag)) {
-            return 100;
-        } else {
-            return -1;
         }
     }
 
