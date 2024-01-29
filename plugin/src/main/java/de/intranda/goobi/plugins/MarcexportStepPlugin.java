@@ -640,7 +640,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             right = " ";
         }
 
-        return left + marcFieldText + right;
+        return left.replace("\\u0020", " ") + marcFieldText + right.replace("\\u0020", " ");
     }
 
     private String getPatternTargetFromText(String text, String template, String target) {
