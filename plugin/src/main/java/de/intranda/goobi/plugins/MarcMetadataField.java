@@ -19,6 +19,8 @@
 
 package de.intranda.goobi.plugins;
 
+import java.util.Map;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NonNull;
@@ -65,4 +67,7 @@ public class MarcMetadataField {
     private String mergeSeparator;
 
     private String regularExpression; // regular expression to manipulate the value. Usage is '/searchvalue/replacement/'
+
+    private Map<String, String> replacements;
+
 }

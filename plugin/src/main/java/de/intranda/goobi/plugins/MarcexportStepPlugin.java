@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -93,7 +94,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
     private transient List<MarcMetadataField> marcFields = new ArrayList<>();
     private transient List<MarcDocstructField> docstructFields = new ArrayList<>();
 
-    private static final SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+    private final SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 
     private String exportFolder;
 
@@ -132,9 +133,17 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             String patternTarget = hc.getString("@patternTarget", "");
             String mergeSeparator = hc.getString("@mergeSeparator", null);
             String regularExpression = hc.getString("@regularExpression", null);
+
+            Map<String, String> replacements = new HashMap<>();
+
+            List<HierarchicalConfiguration> sublist = hc.configurationsAt("/replacement");
+            for (HierarchicalConfiguration sub : sublist) {
+                replacements.put(sub.getString("@oldValue"), sub.getString("@newValue"));
+            }
+
             MarcMetadataField mmf = new MarcMetadataField(type, mainTag, ind1, ind2, subTag, repetitionMode, rulesetName, additionalSubFieldCode,
                     additionalSubFieldValue, anchorMetadata, conditionField, conditionValue, conditionType, text, wrapperLeft, wrapperRight,
-                    patternTemplate, patternTarget, mergeSeparator, regularExpression);
+                    patternTemplate, patternTarget, mergeSeparator, regularExpression, replacements);
             marcFields.add(mmf);
         }
 
@@ -265,7 +274,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                         if (StringUtils.isBlank(configuredField.getMergeSeparator()) || !isMarcFieldReusable(marcField, configuredField)) {
                             marcField = createMainElement(recordElement, configuredField);
                         }
-                        // TODO check last sub field
 
                         for (Metadata md : grp.getMetadataList()) {
                             MetadataType mdt = md.getType();
@@ -495,6 +503,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         marcField = generateMarcField(recordElement, marcField, configuredField);
 
         String marcFieldText = getWrappedMarcFieldText(configuredField, md);
+        if (configuredField.getReplacements().containsKey(marcFieldText)) {
+            marcFieldText = configuredField.getReplacements().get(marcFieldText);
+        }
+
         Element elementToSetText;
         String mergeSeparator = configuredField.getMergeSeparator();
         // The controlfield-check was not there for Person and Corporation, but I think it should be. - Zehong
@@ -542,9 +554,6 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             }
         }
         return lastMatchingSubfield;
-        //        
-        //        List<Element> elements = marcField.getChildren();
-        //        return elements.isEmpty() ? null : elements.get(elements.size() - 1);
     }
 
     private String getMergedText(String oldText, String separator, String newText) {
