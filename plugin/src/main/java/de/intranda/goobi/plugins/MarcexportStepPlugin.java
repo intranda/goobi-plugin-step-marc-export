@@ -542,7 +542,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
             return newText;
         }
 
-        return oldText + (StringUtils.isBlank(separator) ? " " : separator) + newText;
+        return oldText + (StringUtils.isBlank(separator) ? " " : separator.replace("\\u0020", " ")) + newText;
     }
 
     private List<? extends Metadata> getMetadataListGeneral(DocStruct docstruct, MarcMetadataField configuredField, MetadataType mdt) {
