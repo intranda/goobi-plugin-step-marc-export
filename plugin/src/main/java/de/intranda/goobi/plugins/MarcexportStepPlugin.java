@@ -262,7 +262,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     List<MetadataGroup> grps = docstruct.getAllMetadataGroupsByType(mgt);
                     for (MetadataGroup grp : grps) {
                         // generate new main field
-                        marcField = createMainElement(recordElement, configuredField);
+                        if (StringUtils.isBlank(configuredField.getMergeSeparator()) || !isMarcFieldReusable(marcField, configuredField)) {
+                            marcField = createMainElement(recordElement, configuredField);
+                        }
+                        // TODO check last sub field
 
                         for (Metadata md : grp.getMetadataList()) {
                             MetadataType mdt = md.getType();
@@ -532,9 +535,16 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         if (CONTROLFIELD_NAME.equals(configuredField.getFieldType())) {
             return marcField;
         }
-
-        List<Element> elements = marcField.getChildren();
-        return elements.isEmpty() ? null : elements.get(elements.size() - 1);
+        Element lastMatchingSubfield = null;
+        for (Element el : marcField.getChildren()) {
+            if (configuredField.getMarcSubTag().equals(el.getAttributeValue("code"))) {
+                lastMatchingSubfield = el;
+            }
+        }
+        return lastMatchingSubfield;
+        //        
+        //        List<Element> elements = marcField.getChildren();
+        //        return elements.isEmpty() ? null : elements.get(elements.size() - 1);
     }
 
     private String getMergedText(String oldText, String separator, String newText) {
