@@ -282,7 +282,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                             // find matching export mapping
 
                             for (MarcMetadataField field : marcFields) {
-                                if (StringUtils.isNotBlank(field.getRulesetName()) && field.getRulesetName().equals(groupFieldName)) {
+                                if (StringUtils.isNotBlank(field.getRulesetName()) && field.getRulesetName().equals(groupFieldName)
+                                        && field.getMarcMainTag().equals(configuredField.getMarcMainTag())) {
                                     marcField = writeMetadataGeneral(docstruct, recordElement, marcField, field, md, conditionType);
                                 }
 
