@@ -271,27 +271,22 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                     List<MetadataGroup> grps = docstruct.getAllMetadataGroupsByType(mgt);
                     for (MetadataGroup grp : grps) {
                         // generate new main field
+                        String groupName = mgt.getName() + "/";
                         if (StringUtils.isBlank(configuredField.getMergeSeparator()) || !isMarcFieldReusable(marcField, configuredField)) {
                             marcField = createMainElement(recordElement, configuredField);
                         }
-
-                        for (Metadata md : grp.getMetadataList()) {
-                            MetadataType mdt = md.getType();
-                            // find mapping for
-                            String groupFieldName = mgt.getName() + "/" + mdt.getName();
-                            // find matching export mapping
-
-                            for (MarcMetadataField field : marcFields) {
-                                if (StringUtils.isNotBlank(field.getRulesetName()) && field.getRulesetName().equals(groupFieldName)
-                                        && field.getMarcMainTag().equals(configuredField.getMarcMainTag())) {
-                                    marcField = writeMetadataGeneral(docstruct, recordElement, marcField, field, md, conditionType);
+                        for (MarcMetadataField field : marcFields) {
+                            if (StringUtils.isNotBlank(field.getRulesetName()) && field.getRulesetName().startsWith(groupName)
+                                    && field.getMarcMainTag().equals(configuredField.getMarcMainTag())) {
+                                String metadataName = field.getRulesetName().replace(groupName, "");
+                                for (Metadata md : grp.getMetadataList()) {
+                                    if (md.getType().getName().equals(metadataName)) {
+                                        marcField = writeMetadataGeneral(docstruct, recordElement, marcField, field, md, conditionType);
+                                    }
                                 }
-
                             }
-
                         }
                     }
-
                 } else {
                     MetadataType mdt = prefs.getMetadataTypeByName(type);
                     if (mdt != null) {
