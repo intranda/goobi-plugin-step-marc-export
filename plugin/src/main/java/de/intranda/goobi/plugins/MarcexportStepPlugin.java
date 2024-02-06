@@ -719,6 +719,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
                 return md.getValue().equals(configuredField.getConditionValue());
             case "not":
                 return !md.getValue().equals(configuredField.getConditionValue());
+            case "matches":
+                return md.getValue().matches(configuredField.getConditionValue());
             case "any":
                 return true;
             default:
