@@ -7,7 +7,7 @@
     <relativePath />
   </parent>
   <groupId>io.goobi.workflow.plugin</groupId>
-  <artifactId>plugin-step-marcexport</artifactId>
+  <artifactId>plugin-step-marc-export</artifactId>
   <packaging>pom</packaging>
   <modules>
     <module>module-base</module>
