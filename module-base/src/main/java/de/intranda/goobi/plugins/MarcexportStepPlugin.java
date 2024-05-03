@@ -98,6 +98,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
     private String exportFolder;
 
+    private String identifierField;
+
     @Override
     public void initialize(Step step, String returnPath) {
         this.returnPath = returnPath;
@@ -110,6 +112,8 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         if (!exportFolder.endsWith("/")) {
             exportFolder = exportFolder + "/";
         }
+
+        identifierField = myconfig.getString("/identifierField", "CatalogIDDigital");
 
         List<HierarchicalConfiguration> hcl = myconfig.configurationsAt("/marcField");
         for (HierarchicalConfiguration hc : hcl) {
@@ -215,7 +219,7 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
 
         for (DocStruct docstruct : docstructList) {
             // 1. get identifier
-            String identifier = getIdentifierOfDocStruct(docstruct);
+            String identifier = getIdentifierOfDocStruct(docstruct, prefs);
 
             // 2. get currentField
             MarcDocstructField currentField = getCurrentMarcField(docstruct);
@@ -372,10 +376,10 @@ public class MarcexportStepPlugin implements IStepPluginVersion2 {
         return false;
     }
 
-    private String getIdentifierOfDocStruct(DocStruct docstruct) {
+    private String getIdentifierOfDocStruct(DocStruct docstruct, Prefs prefs) {
         String identifier = null;
 
-        List<Metadata> identifierList = docstruct.getAllIdentifierMetadata();
+        List<? extends Metadata> identifierList = docstruct.getAllMetadataByType(prefs.getMetadataTypeByName(identifierField));
         if (identifierList != null) {
             identifier = identifierList.get(0).getValue();
         }
